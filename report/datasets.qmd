@@ -10,7 +10,7 @@ This page documents the datasets used in the Marshall Fire analysis.
 
 The official Marshall Fire perimeter from Boulder County Open Spatial Data, available as GeoJSON.
 
-![Marshall Fire Perimeter](../output/marshall_fire_perimeter.png)
+![Marshall Fire Perimeter](images/marshall_fire_perimeter.png)
 
 ## Landfire Data
 
@@ -29,7 +29,7 @@ High-Resolution Rapid Refresh (HRRR) provides hourly wind field data at 3km reso
 
 ### Wind Animation
 
-![HRRR Wind Animation](../output/hrrr_wind.gif)
+![HRRR Wind Animation](images/hrrr_wind.gif)
 
 ## Data Sources
 

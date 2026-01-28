@@ -1,11 +1,11 @@
 ---
-title: "Generate Plots"
+title: "Plots"
 execute:
   echo: true
   output: false
 ---
 
-This page generates all plots for the Marshall Fire analysis. Plots are only regenerated if they don't already exist.
+This page generates and displays all plots for the Marshall Fire analysis. Plots are only regenerated if they don't already exist.
 
 ```{julia}
 using Pkg
@@ -15,8 +15,8 @@ Pkg.instantiate()
 using MarshallWildfire
 using GLMakie
 
-# Set output directory
-output_dir = joinpath(@__DIR__, "..", "output")
+# Set output directory inside report folder
+output_dir = joinpath(@__DIR__, "images")
 mkpath(output_dir)
 ```
 
@@ -32,6 +32,8 @@ else
 end
 ```
 
+![Marshall Fire Perimeter](images/marshall_fire_perimeter.png)
+
 ## Perimeter with Buildings and Power Lines
 
 ```{julia}
@@ -43,6 +45,8 @@ else
     @info "marshall_fire_with_buildings.png already exists"
 end
 ```
+
+![Marshall Fire with Buildings and Power Lines](images/marshall_fire_with_buildings.png)
 
 ## Landfire Layers
 
@@ -59,6 +63,19 @@ else
 end
 ```
 
+::: {.panel-tabset}
+
+### Fuel Model
+![Fuel Model](images/landfire_US_250FBFM13.png)
+
+### Slope
+![Slope](images/landfire_US_250SLP.png)
+
+### Aspect
+![Aspect](images/landfire_US_250ASP.png)
+
+:::
+
 ## Fuel Flammability
 
 ```{julia}
@@ -70,6 +87,8 @@ else
     @info "fuel_flammability.png already exists"
 end
 ```
+
+![Fuel Flammability](images/fuel_flammability.png)
 
 ## HRRR Wind Animation
 
@@ -83,6 +102,4 @@ else
 end
 ```
 
-## Summary
-
-All plots have been generated and saved to the `output/` directory.
+![HRRR Wind Animation](images/hrrr_wind.gif)
