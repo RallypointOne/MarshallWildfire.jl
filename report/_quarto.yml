@@ -1,0 +1,30 @@
+project:
+  type: website
+  output-dir: _site
+  render:
+    - index.qmd
+    - datasets.qmd
+
+website:
+  title: "Marshall Fire Analysis"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - href: datasets.qmd
+        text: Datasets
+    right:
+      - icon: github
+        href: https://github.com/joshday/MarshallWildfire
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    code-fold: true
+    code-tools: true
+
+execute:
+  freeze: auto
+
+jupyter: julia-1.12

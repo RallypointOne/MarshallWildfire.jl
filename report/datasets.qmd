@@ -1,0 +1,40 @@
+---
+title: "Datasets"
+---
+
+## Overview
+
+This page documents the datasets used in the Marshall Fire analysis.
+
+## Fire Perimeter
+
+The official Marshall Fire perimeter from Boulder County Open Spatial Data, available as GeoJSON.
+
+![Marshall Fire Perimeter](../output/marshall_fire_perimeter.png)
+
+## Landfire Data
+
+Landfire provides fuel, vegetation, and terrain data for fire modeling. The following layers are used:
+
+- **FBFM13/FBFM40**: Fire Behavior Fuel Model
+- **SLP**: Slope (degrees)
+- **ASP**: Aspect (degrees from north)
+
+## HRRR Wind Data
+
+High-Resolution Rapid Refresh (HRRR) provides hourly wind field data at 3km resolution. Wind components:
+
+- **u**: East-west wind component (m/s)
+- **v**: North-south wind component (m/s)
+
+### Wind Animation
+
+![HRRR Wind Animation](../output/hrrr_wind.gif)
+
+## Data Sources
+
+| Dataset | Source | Resolution |
+|---------|--------|------------|
+| Fire Perimeter | Boulder County ArcGIS | Vector |
+| Landfire | USGS | 30m |
+| HRRR | NOAA | 3km, hourly |

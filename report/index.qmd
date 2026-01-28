@@ -1,0 +1,27 @@
+---
+title: "Marshall Fire Analysis"
+---
+
+## Overview
+
+The Marshall Fire was a devastating wildfire that occurred in Boulder County, Colorado on December 30, 2021. Driven by extreme winds, it became the most destructive wildfire in Colorado history, destroying over 1,000 structures.
+
+This project analyzes the Marshall Fire using:
+
+- **HRRR Weather Data**: High-Resolution Rapid Refresh wind fields
+- **Landfire Data**: Fuel models, terrain slope, and aspect
+- **Fire Perimeter**: Official burn perimeter from Boulder County
+
+## Key Facts
+
+| Attribute | Value |
+|-----------|-------|
+| Start Date | December 30, 2021 |
+| Location | Boulder County, CO |
+| Ignition Point | -105.231°, 39.955° |
+| Cause | Downed power lines (wind) |
+
+## Project Structure
+
+- **Datasets**: Exploration of input data sources
+- **Model**: Rothermel-based fire spread simulation using level-set method

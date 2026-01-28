@@ -1,9 +1,46 @@
 name = "MarshallWildfire"
 uuid = "1c91fcd5-18ba-4a4e-b362-b948c1108bf8"
-authors = ["Josh Day <emailjoshday@gmail.com> and contributors"]
 version = "1.0.0-DEV"
+authors = ["Josh Day <emailjoshday@gmail.com> and contributors"]
+
+[deps]
+ArchGDAL = "c9ce4bd3-c3d5-55b8-8973-c0e20141b8c3"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+Extents = "411431e0-e8b7-467b-b5e0-f676ba4f2910"
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+GeoFormatTypes = "68eda718-8dee-11e9-39e7-89f7f65f511f"
+GeoInterface = "cf35fbd7-0cd7-5166-be24-54bfbe79505f"
+GeoJSON = "61d90e0f-e114-555e-ac52-39dfb47a3ef9"
+GeoMakie = "db073c08-6b98-4ee5-b6a4-5efafb3259c6"
+GeoSurrogates = "7068cc40-2035-44e5-a3a1-4a05757b754b"
+GeometryOps = "3251bfac-6a57-4b6d-aa61-ac1fef2975ab"
+Landfire = "16f38fd6-0379-4569-89bb-2d3d56e50de8"
+OSMGeocoder = "28a637ce-2736-498a-9075-487c6d86a7c1"
+RapidRefreshData = "6311d174-80ed-4991-8be9-d0557cea290a"
+Rasters = "a3a2b9e3-a471-40c9-b274-f788e487c689"
+TimeZones = "f269a46b-ccf7-5d73-abea-4c690281aa53"
+Tyler = "e170d443-b9d6-418a-9ee8-061e966341ef"
+WebAssets = "5318a24a-cfbb-471b-80de-2ec25d7c2d8b"
+WildfireData = "c50625c8-1a95-45e7-9f30-e55dbed7e5b4"
 
 [compat]
+ArchGDAL = "0.10.11"
+Dates = "1.11.0"
+Downloads = "1.7.0"
+Extents = "0.1.6"
+GLMakie = "0.13.8"
+GeoFormatTypes = "0.4.5"
+GeoInterface = "1.6.0"
+GeoJSON = "0.8.4"
+GeoMakie = "0.7.16"
+GeometryOps = "0.1.37"
+OSMGeocoder = "0.0.1"
+RapidRefreshData = "0.1.0"
+Rasters = "0.14.7"
+TimeZones = "1.22.2"
+Tyler = "0.2.5"
+WebAssets = "1.0.0"
 julia = "1.10.10"
 
 [extras]
