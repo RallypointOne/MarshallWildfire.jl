@@ -1,0 +1,88 @@
+---
+title: "Generate Plots"
+execute:
+  echo: true
+  output: false
+---
+
+This page generates all plots for the Marshall Fire analysis. Plots are only regenerated if they don't already exist.
+
+```{julia}
+using Pkg
+Pkg.activate(joinpath(@__DIR__, ".."))
+Pkg.instantiate()
+
+using MarshallWildfire
+using GLMakie
+
+# Set output directory
+output_dir = joinpath(@__DIR__, "..", "output")
+mkpath(output_dir)
+```
+
+## Fire Perimeter
+
+```{julia}
+path = joinpath(output_dir, "marshall_fire_perimeter.png")
+if !isfile(path)
+    @info "Generating marshall_fire_perimeter.png"
+    MarshallWildfire.plot_marshall_perimeter(; output_dir)
+else
+    @info "marshall_fire_perimeter.png already exists"
+end
+```
+
+## Perimeter with Buildings and Power Lines
+
+```{julia}
+path = joinpath(output_dir, "marshall_fire_with_buildings.png")
+if !isfile(path)
+    @info "Generating marshall_fire_with_buildings.png"
+    MarshallWildfire.plot_perimeter_with_buildings(; output_dir)
+else
+    @info "marshall_fire_with_buildings.png already exists"
+end
+```
+
+## Landfire Layers
+
+```{julia}
+# Check if any landfire plots are missing
+lf = MarshallWildfire.get_landfire_data()
+missing_layers = filter(k -> !isfile(joinpath(output_dir, "landfire_$k.png")), keys(lf))
+
+if !isempty(missing_layers)
+    @info "Generating landfire layer plots"
+    MarshallWildfire.plot_landfire_layers(; output_dir)
+else
+    @info "All landfire layer plots already exist"
+end
+```
+
+## Fuel Flammability
+
+```{julia}
+path = joinpath(output_dir, "fuel_flammability.png")
+if !isfile(path)
+    @info "Generating fuel_flammability.png"
+    MarshallWildfire.plot_fuel_flammability(; output_dir)
+else
+    @info "fuel_flammability.png already exists"
+end
+```
+
+## HRRR Wind Animation
+
+```{julia}
+path = joinpath(output_dir, "hrrr_wind.gif")
+if !isfile(path)
+    @info "Generating hrrr_wind.gif"
+    MarshallWildfire.plot_hrrr_wind(; output_dir)
+else
+    @info "hrrr_wind.gif already exists"
+end
+```
+
+## Summary
+
+All plots have been generated and saved to the `output/` directory.

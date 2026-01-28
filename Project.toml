@@ -15,14 +15,20 @@ GeoJSON = "61d90e0f-e114-555e-ac52-39dfb47a3ef9"
 GeoMakie = "db073c08-6b98-4ee5-b6a4-5efafb3259c6"
 GeoSurrogates = "7068cc40-2035-44e5-a3a1-4a05757b754b"
 GeometryOps = "3251bfac-6a57-4b6d-aa61-ac1fef2975ab"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 Landfire = "16f38fd6-0379-4569-89bb-2d3d56e50de8"
 OSMGeocoder = "28a637ce-2736-498a-9075-487c6d86a7c1"
 RapidRefreshData = "6311d174-80ed-4991-8be9-d0557cea290a"
 Rasters = "a3a2b9e3-a471-40c9-b274-f788e487c689"
 TimeZones = "f269a46b-ccf7-5d73-abea-4c690281aa53"
 Tyler = "e170d443-b9d6-418a-9ee8-061e966341ef"
+URIs = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
 WebAssets = "5318a24a-cfbb-471b-80de-2ec25d7c2d8b"
 WildfireData = "c50625c8-1a95-45e7-9f30-e55dbed7e5b4"
+
+[sources]
+GeoSurrogates = {url = "https://github.com/RallypointOne/GeoSurrogates.jl"}
+WildfireData = {url = "https://github.com/RallypointOne/WildfireData.jl"}
 
 [compat]
 ArchGDAL = "0.10.11"
@@ -35,11 +41,13 @@ GeoInterface = "1.6.0"
 GeoJSON = "0.8.4"
 GeoMakie = "0.7.16"
 GeometryOps = "0.1.37"
+JSON3 = "1.14.3"
 OSMGeocoder = "0.0.1"
 RapidRefreshData = "0.1.0"
 Rasters = "0.14.7"
 TimeZones = "1.22.2"
 Tyler = "0.2.5"
+URIs = "1.6.1"
 WebAssets = "1.0.0"
 julia = "1.10.10"
 

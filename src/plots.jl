@@ -25,6 +25,48 @@ function plot_marshall_perimeter(; output_dir = joinpath(@__DIR__, "..", "output
     return
 end
 
+#-----------------------------------------------------------------------------# plot_perimeter_with_buildings
+function plot_perimeter_with_buildings(; output_dir = joinpath(@__DIR__, "..", "output"))
+    mkpath(output_dir)
+    perim = get_perimeter()
+    buildings = get_building_footprints()
+    powerlines = get_power_lines()
+
+    fig = Figure(size = (800, 800))
+    ax = GeoAxis(fig[1, 1]; dest = "+proj=webmerc", title = "Marshall Fire: Buildings & Power Lines")
+    hidedecorations!(ax, label=false, ticklabels=false, ticks=false, grid=true)
+    m = Tyler.Map(extent2; figure = fig, axis = ax)
+    wait(m)
+
+    # Plot building footprints in black
+    poly!(ax, buildings.geometry; color = :black, strokecolor = :black, strokewidth = 0.5, alpha=0.7)
+
+    # Plot power lines in purple (dotted)
+    lines!(ax, powerlines.geometry; color = :purple, linewidth = 2, linestyle = :dot)
+
+    # Plot the perimeter on top
+    poly!(ax, perim.geometry; color = (:red, 0.3), strokecolor = :red, strokewidth = 2)
+
+    # Plot the ignition point as a star
+    p = scatter!(ax, [ignition_point.lon], [ignition_point.lat]; marker = :star5, markersize = 20, color = :yellow, strokecolor = :black, strokewidth = 1)
+    translate!(p, 0, 0, 1)
+
+    # Add legend
+    legend_elements = [
+        PolyElement(color = :black, strokecolor = :black, strokewidth = 0.5),
+        LineElement(color = :purple, linewidth = 2, linestyle = :dot),
+        PolyElement(color = (:red, 0.3), strokecolor = :red, strokewidth = 2),
+        MarkerElement(marker = :star5, color = :yellow, strokecolor = :black, strokewidth=1, markersize = 15)
+    ]
+    legend_labels = ["Buildings", "Power Lines", "Fire Perimeter", "Ignition Point"]
+    Legend(fig[1, 2], legend_elements, legend_labels; framevisible = true, padding = (10, 10, 10, 10))
+
+    # Save the figure
+    output_path = joinpath(output_dir, "marshall_fire_with_buildings.png")
+    save(output_path, fig)
+    return fig
+end
+
 #-----------------------------------------------------------------------------# plot_landfire_layers
 function plot_landfire_layers(; output_dir = joinpath(@__DIR__, "..", "output"))
     mkpath(output_dir)
@@ -43,6 +85,74 @@ function plot_landfire_layers(; output_dir = joinpath(@__DIR__, "..", "output"))
         save(output_path, fig)
     end
     return
+end
+
+#-----------------------------------------------------------------------------# plot_fuel_flammability
+"""
+    plot_fuel_flammability(; output_dir)
+
+Plot Landfire fuel model data colored by flammability.
+Anderson 13 fuel models ranked from most to least flammable based on
+typical fire behavior (spread rate and intensity).
+"""
+function plot_fuel_flammability(; output_dir = joinpath(@__DIR__, "..", "output"))
+    mkpath(output_dir)
+    lf = get_landfire_data()
+
+    # Find fuel model layer (names include US_250 prefix)
+    fuel_key = haskey(lf, :US_250FBFM13) ? :US_250FBFM13 : (haskey(lf, :US_250FBFM40) ? :US_250FBFM40 : nothing)
+    if isnothing(fuel_key)
+        error("No fuel model layer found in Landfire data. Available layers: $(keys(lf))")
+    end
+    fuel = lf[fuel_key]
+
+    # Anderson 13 fuel models ranked by flammability (spread rate × intensity)
+    # Higher rank = more flammable
+    # Based on typical fire behavior characteristics
+    flammability_rank = Dict(
+        1  => 8,   # Short grass - fast spread, moderate intensity
+        2  => 9,   # Timber grass - fast spread, higher intensity
+        3  => 10,  # Tall grass - very fast spread, high intensity
+        4  => 13,  # Chaparral - extreme fire behavior
+        5  => 6,   # Brush - moderate
+        6  => 5,   # Dormant brush - moderate
+        7  => 4,   # Southern rough - lower (high moisture)
+        8  => 2,   # Compact timber litter - slow spread
+        9  => 3,   # Hardwood litter - slow/moderate spread
+        10 => 7,   # Timber understory - moderate
+        11 => 11,  # Light logging slash - high
+        12 => 12,  # Medium logging slash - very high
+        13 => 14,  # Heavy logging slash - extreme
+        # Non-burnable codes (91, 92, 93, 98, 99) -> 0
+    )
+
+    # Convert fuel codes to flammability values
+    flammability = map(fuel.data) do code
+        c = round(Int, code)
+        get(flammability_rank, c, 0)
+    end
+    flammability_raster = Raster(flammability; dims=dims(fuel))
+
+    fig = Figure(size = (900, 800))
+    ax = GeoAxis(fig[1, 1]; dest = "+proj=webmerc", title = "Fuel Flammability")
+    hidedecorations!(ax, label=false, ticklabels=false, ticks=false, grid=true)
+
+    # Use a fire-themed colormap (yellow -> orange -> red -> dark red)
+    hm = heatmap!(ax, flammability_raster; colormap = :YlOrRd, colorrange = (0, 14))
+
+    # Custom colorbar with fuel model labels
+    cb = Colorbar(fig[1, 2], hm;
+        label = "Flammability",
+        ticks = ([1, 4, 7, 10, 13], ["Low", "Moderate", "High", "Very High", "Extreme"])
+    )
+
+    # Add fire perimeter overlay
+    perim = get_perimeter()
+    poly!(ax, perim.geometry; color = :transparent, strokecolor = :black, strokewidth = 2)
+
+    output_path = joinpath(output_dir, "fuel_flammability.png")
+    save(output_path, fig)
+    return fig
 end
 
 #-----------------------------------------------------------------------------# plot_hrrr_wind

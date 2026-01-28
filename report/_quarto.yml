@@ -3,6 +3,7 @@ project:
   output-dir: _site
   render:
     - index.qmd
+    - plots.qmd
     - datasets.qmd
 
 website:
@@ -11,6 +12,8 @@ website:
     left:
       - href: index.qmd
         text: Home
+      - href: plots.qmd
+        text: Plots
       - href: datasets.qmd
         text: Datasets
     right:

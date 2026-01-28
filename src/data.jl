@@ -19,6 +19,192 @@ function get_landfire_data()
     (; (Symbol(b) => r[Band = At(b)] for b in lookup(r, Rasters.Band))...)
 end
 
+#-----------------------------------------------------------------------------# building footprints
+"""
+    get_building_footprints()
+
+Download building footprints from OpenStreetMap for the extent2 area.
+Uses the Overpass API to query building polygons.
+"""
+function get_building_footprints()
+    path = joinpath(@__DIR__, "..", "data", "buildings.geojson")
+
+    if !isfile(path)
+        mkpath(dirname(path))
+
+        # Overpass API query for buildings in extent2
+        xmin, xmax = extent2.X
+        ymin, ymax = extent2.Y
+        bbox = "$(ymin),$(xmin),$(ymax),$(xmax)"
+
+        query = """
+        [out:json][timeout:120];
+        (
+          way["building"]($(bbox));
+          relation["building"]($(bbox));
+        );
+        out body;
+        >;
+        out skel qt;
+        """
+
+        # URL encode the query
+        encoded_query = URIs.escapeuri(query)
+        url = "https://overpass-api.de/api/interpreter?data=$(encoded_query)"
+
+        # Download OSM JSON
+        osm_path = joinpath(@__DIR__, "..", "data", "buildings_osm.json")
+        Downloads.download(url, osm_path)
+
+        # Convert to GeoJSON using osmtogeojson or manual parsing
+        # For simplicity, use the raw Overpass JSON and parse it
+        osm_data = JSON3.read(read(osm_path, String))
+
+        # Build GeoJSON features from OSM data
+        features = _osm_to_geojson_buildings(osm_data)
+
+        # Write GeoJSON
+        geojson = Dict(
+            "type" => "FeatureCollection",
+            "features" => features
+        )
+        write(path, JSON3.write(geojson))
+
+        # Clean up temp file
+        rm(osm_path, force=true)
+    end
+
+    GeoJSON.read(path)
+end
+
+function _osm_to_geojson_buildings(osm_data)
+    # Build node lookup
+    nodes = Dict{Int64, Tuple{Float64, Float64}}()
+    for element in osm_data.elements
+        if element.type == "node"
+            nodes[element.id] = (element.lon, element.lat)
+        end
+    end
+
+    # Build features from ways
+    features = []
+    for element in osm_data.elements
+        if element.type == "way" && hasproperty(element, :nodes)
+            coords = [get(nodes, nid, nothing) for nid in element.nodes]
+            filter!(!isnothing, coords)
+
+            if length(coords) >= 4
+                # Close the polygon if needed
+                if coords[1] != coords[end]
+                    push!(coords, coords[1])
+                end
+
+                feature = Dict(
+                    "type" => "Feature",
+                    "geometry" => Dict(
+                        "type" => "Polygon",
+                        "coordinates" => [coords]
+                    ),
+                    "properties" => hasproperty(element, :tags) ? Dict(pairs(element.tags)) : Dict()
+                )
+                push!(features, feature)
+            end
+        end
+    end
+
+    return features
+end
+
+#-----------------------------------------------------------------------------# power lines
+"""
+    get_power_lines()
+
+Download power line locations from OpenStreetMap for the extent2 area.
+Uses the Overpass API to query power lines and minor power lines.
+"""
+function get_power_lines()
+    path = joinpath(@__DIR__, "..", "data", "powerlines.geojson")
+
+    if !isfile(path)
+        mkpath(dirname(path))
+
+        # Overpass API query for power lines in extent2
+        xmin, xmax = extent2.X
+        ymin, ymax = extent2.Y
+        bbox = "$(ymin),$(xmin),$(ymax),$(xmax)"
+
+        query = """
+        [out:json][timeout:120];
+        (
+          way["power"="line"]($(bbox));
+          way["power"="minor_line"]($(bbox));
+          way["power"="cable"]($(bbox));
+        );
+        out body;
+        >;
+        out skel qt;
+        """
+
+        # URL encode the query
+        encoded_query = URIs.escapeuri(query)
+        url = "https://overpass-api.de/api/interpreter?data=$(encoded_query)"
+
+        # Download OSM JSON
+        osm_path = joinpath(@__DIR__, "..", "data", "powerlines_osm.json")
+        Downloads.download(url, osm_path)
+
+        osm_data = JSON3.read(read(osm_path, String))
+
+        # Build GeoJSON features from OSM data
+        features = _osm_to_geojson_lines(osm_data)
+
+        # Write GeoJSON
+        geojson = Dict(
+            "type" => "FeatureCollection",
+            "features" => features
+        )
+        write(path, JSON3.write(geojson))
+
+        # Clean up temp file
+        rm(osm_path, force=true)
+    end
+
+    GeoJSON.read(path)
+end
+
+function _osm_to_geojson_lines(osm_data)
+    # Build node lookup
+    nodes = Dict{Int64, Tuple{Float64, Float64}}()
+    for element in osm_data.elements
+        if element.type == "node"
+            nodes[element.id] = (element.lon, element.lat)
+        end
+    end
+
+    # Build features from ways
+    features = []
+    for element in osm_data.elements
+        if element.type == "way" && hasproperty(element, :nodes)
+            coords = [get(nodes, nid, nothing) for nid in element.nodes]
+            filter!(!isnothing, coords)
+
+            if length(coords) >= 2
+                feature = Dict(
+                    "type" => "Feature",
+                    "geometry" => Dict(
+                        "type" => "LineString",
+                        "coordinates" => coords
+                    ),
+                    "properties" => hasproperty(element, :tags) ? Dict(pairs(element.tags)) : Dict()
+                )
+                push!(features, feature)
+            end
+        end
+    end
+
+    return features
+end
+
 #-----------------------------------------------------------------------------# HRRR wind data
 function get_hrrr_data()
     start_date = Date(start_time_utc)
