@@ -32,7 +32,7 @@ jobs:
           sudo apt-get install -y xvfb libgl1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
 
       - name: Cache Julia packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.julia
           key: ${{ runner.os }}-julia-${{ hashFiles('**/Project.toml', '**/Manifest.toml') }}
@@ -40,7 +40,7 @@ jobs:
             ${{ runner.os }}-julia-
 
       - name: Cache downloaded data
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: data
           key: ${{ runner.os }}-data-v1
@@ -48,7 +48,7 @@ jobs:
             ${{ runner.os }}-data-
 
       - name: Cache generated plots
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: report/images
           key: ${{ runner.os }}-plots-${{ hashFiles('src/plots.jl', 'src/data.jl') }}
