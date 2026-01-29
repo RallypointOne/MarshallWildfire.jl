@@ -36,5 +36,12 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v2
+      - name: Install xvfb
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dev
       - uses: julia-actions/julia-buildpkg@v1
+      - name: Run tests with xvfb
+        if: runner.os == 'Linux'
+        run: xvfb-run -a julia --project=. -e 'using Pkg; Pkg.test()'
       - uses: julia-actions/julia-runtest@v1
+        if: runner.os != 'Linux'
