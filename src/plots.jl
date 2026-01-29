@@ -348,12 +348,12 @@ Shows how dry the fuels were when the fire ignited.
 function plot_fuel_moisture(; output_dir = joinpath(@__DIR__, "..", "output"))
     mkpath(output_dir)
 
-    # Get fuel moisture data for 2021
-    fm = get_gridmet_fuel_moisture(; year=2021, variable=:fm100)
+    # Get fuel moisture data for 2021 - use larger extent to show multiple gridMET pixels (~4km resolution)
+    fm_full = get_gridmet_fuel_moisture(; year=2021, variable=:fm100)
 
     # Extract data for December 30, 2021 (fire day)
     fire_date = Date(2021, 12, 30)
-    fm_day = fm[Ti=At(fire_date)]
+    fm_day = fm_full[Ti=At(fire_date)]
 
     # Get fire perimeter
     perim = get_perimeter()
@@ -363,14 +363,19 @@ function plot_fuel_moisture(; output_dir = joinpath(@__DIR__, "..", "output"))
 
     @info "100-hour fuel moisture at ignition point on $(fire_date): $(round(fm_at_ignition, digits=1))%"
 
+    # Use a larger extent to show more gridMET pixels (gridMET is ~4km resolution)
+    plot_extent = Extents.grow(extent, 1.0f0)
+
     fig = Figure(size = (900, 800))
     ax = GeoAxis(fig[1, 1]; dest = "+proj=webmerc",
-                 title = "100-Hour Dead Fuel Moisture - December 30, 2021")
+                 title = "100-Hour Dead Fuel Moisture - December 30, 2021",
+                 limits = (plot_extent.X, plot_extent.Y))
     hidedecorations!(ax, label=false, ticklabels=false, ticks=false, grid=true)
 
     # Plot fuel moisture heatmap (lower = drier = more dangerous)
     # Typical range is 5-30% for dead fuels
-    hm = heatmap!(ax, fm_day; colormap = Reverse(:RdYlBu), colorrange = (5, 25))
+    # RdYlBu: red (low/dry) -> yellow -> blue (high/moist)
+    hm = heatmap!(ax, fm_day; colormap = :RdYlBu, colorrange = (5, 25))
 
     # Add fire perimeter overlay
     poly!(ax, perim.geometry; color = :transparent, strokecolor = :black, strokewidth = 2)

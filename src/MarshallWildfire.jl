@@ -1,6 +1,6 @@
 module MarshallWildfire
 
-using ArchGDAL, Dates, Downloads, Extents, GeoJSON, GeoSurrogates, JSON3, Tyler, GLMakie, GeoMakie, OSMGeocoder, URIs, RapidRefreshData, Rasters, TimeZones
+using ArchGDAL, Dates, Downloads, Extents, GeoJSON, GeoSurrogates, JSON3, Tyler, NCDatasets, GLMakie, GeoMakie, OSMGeocoder, URIs, RapidRefreshData, Rasters, TimeZones
 using GeoJSON: GeoJSON
 
 import Landfire, WebAssets

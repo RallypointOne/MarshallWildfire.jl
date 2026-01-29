@@ -319,8 +319,9 @@ function get_gridmet_fuel_moisture(; year::Int=2021, variable::Symbol=:fm100)
     end
 
     # Load and crop to fire extent (with buffer for context)
-    r = Raster(path)
-    r = crop(r; to=Extents.grow(extent, 0.5f0))
+    # Use 1.0 degree buffer to show multiple gridMET pixels (~4km resolution)
+    r = Raster(path; checkmem=false)
+    r = crop(r; to=Extents.grow(extent, 1.0f0))
 
     return r
 end
