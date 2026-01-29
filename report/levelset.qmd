@@ -1,0 +1,239 @@
+---
+title: "Level Set Method for Wildfire Propagation"
+---
+
+## Introduction
+
+The **level set method** is a numerical technique for tracking interfaces and shapes. Originally developed by Osher and Sethian (1988), it has become a powerful tool for modeling propagating fronts, including wildfire perimeters.
+
+## The Core Idea
+
+Instead of tracking individual points along a fire perimeter (which becomes problematic when the front splits or merges), we embed the front as the **zero level set** of a higher-dimensional function $\psi(x, y, t)$.
+
+::: {.callout-note}
+## Level Set Convention
+- $\psi < 0$: **Burned** area
+- $\psi = 0$: **Fire front** (the perimeter)
+- $\psi > 0$: **Unburned** area
+:::
+
+This implicit representation elegantly handles topological changes—when two fire fronts merge, the mathematics automatically captures this without special case handling.
+
+## Mathematical Formulation
+
+### The Level Set Equation
+
+The evolution of the fire front is governed by:
+
+$$\frac{\partial \psi}{\partial t} + S|\nabla \psi| = 0$$
+
+where:
+
+- $\psi(x, y, t)$ is the level set function
+- $S(x, y, t)$ is the **fire spread rate** (speed of the front)
+- $|\nabla \psi| = \sqrt{\left(\frac{\partial \psi}{\partial x}\right)^2 + \left(\frac{\partial \psi}{\partial y}\right)^2}$ is the magnitude of the gradient
+
+This equation states that the level set function decreases at a rate proportional to the local spread rate times the gradient magnitude. Points where $\psi$ transitions from positive to negative represent the advancing fire front.
+
+### Initialization
+
+The level set is typically initialized as a **signed distance function** from the ignition point:
+
+$$\psi(x, y, 0) = \sqrt{(x - x_0)^2 + (y - y_0)^2}$$
+
+where $(x_0, y_0)$ is the ignition location. This creates a cone-shaped surface where:
+
+- The apex (minimum) is at the ignition point
+- The zero contour initially forms a point (or small circle)
+- As time progresses, the zero contour expands outward
+
+## Fire Spread Rate: The Rothermel Model
+
+The spread rate $S$ is not constant—it depends on:
+
+1. **Fuel properties** (vegetation type, moisture content)
+2. **Wind** (speed and direction)
+3. **Terrain** (slope and aspect)
+
+The **Rothermel model** (1972) is the standard for calculating wildfire spread rate. It computes a base spread rate $R_0$ from fuel properties, then modifies it with wind and slope factors:
+
+$$R = R_0 (1 + \phi_w + \phi_s)$$
+
+### Base Spread Rate
+
+The no-wind, no-slope spread rate depends on:
+
+| Parameter | Description |
+|-----------|-------------|
+| $w_0$ | Fuel load (kg/m²) |
+| $\sigma$ | Surface-area-to-volume ratio (1/m) |
+| $M_x$ | Moisture of extinction |
+| $h$ | Heat content (kJ/kg) |
+| $\delta$ | Fuel bed depth (m) |
+
+These parameters are tabulated for standard fuel models (e.g., Anderson's 13 fuel models).
+
+### Wind Factor ($\phi_w$)
+
+Wind accelerates fire spread in the direction it blows:
+
+$$\phi_w = C \cdot U^B \cdot \left(\frac{\beta}{\beta_{op}}\right)^{-E}$$
+
+where $U$ is wind speed and $C$, $B$, $E$ are fuel-dependent coefficients.
+
+### Slope Factor ($\phi_s$)
+
+Fire spreads faster uphill:
+
+$$\phi_s = 5.275 \cdot \beta^{-0.3} \cdot \tan^2(\theta)$$
+
+where $\theta$ is the terrain slope.
+
+### Directional Effects
+
+Wind and slope create directional spread. The implementation combines these as vectors:
+
+```
+Wind pushes fire in direction: wind_dir + π  (opposite to wind source)
+Slope pushes fire uphill: aspect + π  (opposite to downslope direction)
+```
+
+## LANDFIRE: Fuels and Terrain Data
+
+[LANDFIRE](https://landfire.gov/) (Landscape Fire and Resource Management Planning Tools) is a program that provides geospatial data for wildfire modeling across the United States. For level set fire propagation, LANDFIRE supplies the critical inputs needed by the Rothermel model.
+
+### Key LANDFIRE Layers
+
+| Layer | Code | Description | Use in Model |
+|-------|------|-------------|--------------|
+| Fire Behavior Fuel Model 13 | FBFM13 | Anderson's 13 standard fuel models | Fuel properties ($w_0$, $\sigma$, $M_x$, $h$, $\delta$) |
+| Fire Behavior Fuel Model 40 | FBFM40 | Scott & Burgan's 40 fuel models | Extended fuel classification |
+| Slope | SLP | Terrain slope in degrees | Slope factor $\phi_s$ |
+| Aspect | ASP | Downslope direction in degrees | Direction of slope effect |
+
+### Fuel Model Classification
+
+LANDFIRE's FBFM13 layer classifies vegetation into Anderson's 13 fuel models:
+
+| Model | Description | Typical Spread Rate |
+|-------|-------------|---------------------|
+| 1 | Short grass (1 ft) | Fast |
+| 2 | Timber with grass understory | Fast |
+| 3 | Tall grass (2.5 ft) | Very fast |
+| 4 | Chaparral (6 ft) | Very fast, high intensity |
+| 5 | Brush (2 ft) | Moderate |
+| 6 | Dormant brush | Moderate |
+| 7 | Southern rough | Low (high moisture) |
+| 8 | Closed timber litter | Slow |
+| 9 | Hardwood litter | Slow |
+| 10 | Timber with understory | Moderate |
+| 11-13 | Logging slash | High to extreme |
+
+::: {.callout-tip}
+## Non-Burnable Codes
+LANDFIRE uses special codes for non-burnable areas:
+
+- **91**: Urban/developed
+- **92**: Snow/ice
+- **93**: Agriculture
+- **98**: Water
+- **99**: Barren
+
+These are assigned zero spread rate in the model.
+:::
+
+### Integrating LANDFIRE with the Level Set
+
+At each grid point $(x, y)$, the model queries LANDFIRE rasters to obtain:
+
+```julia
+# Get fuel model and lookup properties
+fuel_code = FBFM13[x, y]  # e.g., 3 for tall grass
+fuel = FUEL_MODELS[fuel_code]  # (w0, σ, Mx, h, δ)
+
+# Get terrain
+slope = deg2rad(SLP[x, y])  # Convert to radians
+aspect = deg2rad(ASP[x, y])
+
+# Calculate spread rate using Rothermel
+S = rothermel_spread_rate(fuel, wind_speed, wind_dir, slope, aspect)
+```
+
+### Spatial Resolution
+
+LANDFIRE data is provided at **30-meter resolution**, which determines the finest scale at which fuel and terrain variability can be captured. The level set grid resolution should be chosen considering:
+
+- **Coarser than 30m**: Loses fuel heterogeneity detail
+- **Finer than 30m**: No additional information (interpolated values)
+- **Typical choice**: 30-100m grid cells for computational efficiency
+
+### Data Preprocessing
+
+Before use in the model, LANDFIRE data requires:
+
+1. **Projection alignment**: Ensure all layers use the same coordinate reference system (typically WGS84 for compatibility with weather data)
+2. **Extent cropping**: Extract only the region of interest
+3. **Missing data handling**: Replace NoData values with defaults or neighboring values
+
+## Numerical Implementation
+
+### The Godunov Upwind Scheme
+
+Solving the level set equation numerically requires careful treatment of the gradient term. The **upwind scheme** ensures numerical stability by using gradient information from the direction the front is coming from.
+
+For a grid point $(i, j)$:
+
+1. Compute **backward** and **forward** differences:
+   - $D_x^- = \frac{\psi_{i,j} - \psi_{i-1,j}}{\Delta x}$
+   - $D_x^+ = \frac{\psi_{i+1,j} - \psi_{i,j}}{\Delta x}$
+   - (similarly for $y$)
+
+2. Apply **Godunov's method** to select the appropriate gradient:
+   - $|\nabla \psi| \approx \sqrt{\max(D_x^-, -D_x^+, 0)^2 + \max(D_y^-, -D_y^+, 0)^2}$
+
+3. Update the level set:
+   $$\psi_{i,j}^{n+1} = \psi_{i,j}^n - \Delta t \cdot S_{i,j} \cdot |\nabla \psi|$$
+
+### CFL Condition
+
+For numerical stability, the time step must satisfy:
+
+$$\Delta t \leq \frac{\min(\Delta x, \Delta y)}{\max(S)}$$
+
+This ensures information propagates at most one grid cell per time step.
+
+## Visualization
+
+The fire perimeter at any time is the **zero contour** of $\psi$:
+
+```julia
+# Extract fire perimeter as contour
+contour(xs, ys, ψ, levels=[0.0])
+```
+
+The burned area is where $\psi < 0$:
+
+```julia
+# Visualize burned area
+heatmap(xs, ys, ψ .< 0)
+```
+
+## Advantages of the Level Set Method
+
+1. **Topological flexibility**: Handles merging and splitting fronts automatically
+2. **Easy to implement**: Regular grid computation
+3. **Natural coupling**: Spread rate can vary spatially and temporally
+4. **Robust**: Numerically stable with upwind schemes
+
+## Limitations
+
+1. **Computational cost**: Requires solving on entire domain, not just the front
+2. **Reinitialization**: The signed distance property can degrade and may need periodic correction
+3. **Resolution**: Grid resolution limits the detail of the front
+
+## References
+
+- Osher, S., & Sethian, J. A. (1988). Fronts propagating with curvature-dependent speed. *Journal of Computational Physics*, 79(1), 12-49.
+- Rothermel, R. C. (1972). A mathematical model for predicting fire spread in wildland fuels. *USDA Forest Service Research Paper INT-115*.
+- Sethian, J. A. (1999). *Level Set Methods and Fast Marching Methods*. Cambridge University Press.
+- Mallet, V., Keyes, D. E., & Fendell, F. E. (2009). Modeling wildland fire propagation with level set methods. *Computers & Mathematics with Applications*, 57(7), 1089-1101.

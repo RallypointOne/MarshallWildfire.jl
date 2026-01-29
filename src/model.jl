@@ -190,91 +190,59 @@ function spread_rate(model::FireModel, x, y, t; Mf=0.05)
     rothermel_spread_rate(fuel, wind_speed, wind_dir, slope, aspect; Mf)
 end
 
-#-----------------------------------------------------------------------------# Level Set Evolution
+#-----------------------------------------------------------------------------# Fire Simulation using Level Set
+
 """
-    LevelSet
+    init_fire!(ls::LevelSet, model::FireModel)
 
-Represents the fire front as a level set function.
-ψ < 0: burned, ψ = 0: fire front, ψ > 0: unburned
+Initialize a level set for fire simulation from the ignition point.
 """
-struct LevelSet
-    ψ::Matrix{Float64}
-    xs::Vector{Float64}
-    ys::Vector{Float64}
-    dx::Float64
-    dy::Float64
-end
-
-function LevelSet(model::FireModel; nx=100, ny=100)
-    ext = model.domain
-    xs = range(ext.X[1], ext.X[2], length=nx)
-    ys = range(ext.Y[1], ext.Y[2], length=ny)
-    dx = step(xs)
-    dy = step(ys)
-
-    # Initialize: signed distance from ignition point
-    ψ = [sqrt((x - ignition_point.lon)^2 + (y - ignition_point.lat)^2) for x in xs, y in ys]
-
-    LevelSet(ψ, collect(xs), collect(ys), dx, dy)
+function init_fire!(ls::LevelSet)
+    init_signed_distance!(ls, ignition_point.lon, ignition_point.lat)
 end
 
 """
-    step!(ls::LevelSet, model::FireModel, t, dt)
+    create_speed_function(model::FireModel; Mf=0.05)
 
-Advance the level set by one time step using upwind scheme.
-Solves: ∂ψ/∂t + S|∇ψ| = 0
+Create a speed function for use with LevelSet simulation.
+Returns a function `speed(x, y, t) -> Real`.
 """
-function step!(ls::LevelSet, model::FireModel, t, dt)
-    ψ = ls.ψ
-    nx, ny = size(ψ)
-    dx, dy = ls.dx, ls.dy
-
-    ψ_new = copy(ψ)
-
-    for i in 2:nx-1, j in 2:ny-1
-        x, y = ls.xs[i], ls.ys[j]
-
-        # Get spread rate
-        S = spread_rate(model, x, y, t).rate
-
-        # Upwind gradients
-        Dxm = (ψ[i, j] - ψ[i-1, j]) / dx
-        Dxp = (ψ[i+1, j] - ψ[i, j]) / dx
-        Dym = (ψ[i, j] - ψ[i, j-1]) / dy
-        Dyp = (ψ[i, j+1] - ψ[i, j]) / dy
-
-        # Godunov upwind scheme
-        Dxm_pos = max(Dxm, 0.0)
-        Dxp_neg = min(Dxp, 0.0)
-        Dym_pos = max(Dym, 0.0)
-        Dyp_neg = min(Dyp, 0.0)
-
-        grad_mag = sqrt(max(Dxm_pos, -Dxp_neg)^2 + max(Dym_pos, -Dyp_neg)^2)
-
-        # Level set equation: ψ_t + S|∇ψ| = 0
-        ψ_new[i, j] = ψ[i, j] - dt * S * grad_mag
-    end
-
-    ls.ψ .= ψ_new
-    return ls
+function create_speed_function(model::FireModel; Mf::Real=0.05)
+    return (x, y, t) -> spread_rate(model, x, y, t; Mf).rate
 end
 
 """
-    simulate(model::FireModel, duration_seconds; dt=60.0, nx=100, ny=100)
+    simulate(model::FireModel, duration_seconds; dt=60.0, nx=100, ny=100, Mf=0.05)
 
-Run fire simulation for given duration.
-Returns vector of (time, LevelSet) snapshots.
+Run fire simulation for given duration using the level set method.
+
+# Arguments
+- `model`: FireModel containing wind, terrain, and fuel data
+- `duration_seconds`: Total simulation time in seconds
+
+# Keyword Arguments
+- `dt`: Time step in seconds (default: 60.0)
+- `nx`, `ny`: Grid resolution (default: 100×100)
+- `Mf`: Fuel moisture content (default: 0.05)
+
+# Returns
+Vector of `(time, LevelSet)` snapshots.
 """
-function simulate(model::FireModel, duration_seconds; dt=60.0, nx=100, ny=100)
-    ls = LevelSet(model; nx, ny)
-    snapshots = [(0.0, deepcopy(ls))]
+function simulate(model::FireModel, duration_seconds::Real;
+                  dt::Real=60.0, nx::Int=100, ny::Int=100, Mf::Real=0.05)
+    # Create level set on model domain
+    ls = LevelSet(model.domain; nx, ny)
 
-    t = 0.0
-    while t < duration_seconds
-        step!(ls, model, t, dt)
-        t += dt
-        push!(snapshots, (t, deepcopy(ls)))
-    end
+    # Initialize from ignition point
+    init_fire!(ls)
 
-    return snapshots
+    # Create speed function from model
+    speed_fn = create_speed_function(model; Mf)
+
+    # Estimate max speed for CFL (use a reasonable upper bound)
+    max_speed = 10.0  # m/s, conservative estimate
+
+    # Run simulation
+    simulate(ls, speed_fn, duration_seconds;
+             dt=dt, save_interval=dt, max_speed=max_speed)
 end

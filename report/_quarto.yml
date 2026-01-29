@@ -5,20 +5,29 @@ project:
     - index.qmd
     - plots.qmd
     - datasets.qmd
+    - levelset.qmd
 
 website:
   title: "Marshall Fire Analysis"
   navbar:
-    left:
-      - href: index.qmd
-        text: Home
-      - href: plots.qmd
-        text: Plots
-      - href: datasets.qmd
-        text: Datasets
     right:
       - icon: github
         href: https://github.com/joshday/MarshallWildfire
+  sidebar:
+    style: docked
+    contents:
+      - href: index.qmd
+        text: Home
+      - section: "Analysis"
+        contents:
+          - href: plots.qmd
+            text: Plots
+          - href: datasets.qmd
+            text: Datasets
+      - section: "Methods"
+        contents:
+          - href: levelset.qmd
+            text: Level Set Method
 
 format:
   html:

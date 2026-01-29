@@ -28,6 +28,7 @@ const stop_time_utc = DateTime(stop_time, UTC)
 #-----------------------------------------------------------------------------#
 include("data.jl")
 include("surrogates.jl")
+include("level_set.jl")
 include("model.jl")
 include("plots.jl")
 

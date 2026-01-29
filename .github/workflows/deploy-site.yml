@@ -26,6 +26,11 @@ jobs:
         with:
           version: '1.12'
 
+      - name: Install xvfb and OpenGL dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+
       - name: Cache Julia packages
         uses: actions/cache@v4
         with:
@@ -36,7 +41,7 @@ jobs:
 
       - name: Install Julia dependencies
         run: |
-          julia --project=. -e '
+          xvfb-run -a julia --project=. -e '
             using Pkg
             Pkg.instantiate()
             Pkg.precompile()
@@ -44,10 +49,15 @@ jobs:
 
       - name: Generate plots
         run: |
-          julia --project=. -e '
+          xvfb-run -a julia --project=. -e '
             using MarshallWildfire
-            MarshallWildfire.plot_marshall_perimeter()
-            MarshallWildfire.plot_hrrr_wind()
+            output_dir = joinpath(@__DIR__, "report", "images")
+            mkpath(output_dir)
+            MarshallWildfire.plot_marshall_perimeter(; output_dir)
+            MarshallWildfire.plot_perimeter_with_buildings(; output_dir)
+            MarshallWildfire.plot_landfire_layers(; output_dir)
+            MarshallWildfire.plot_fuel_flammability(; output_dir)
+            MarshallWildfire.plot_hrrr_wind(; output_dir)
           '
 
       - name: Setup Quarto
