@@ -104,6 +104,22 @@ end
 
 ![Fuel Flammability](images/fuel_flammability.png)
 
+## Fuel Moisture
+
+100-hour dead fuel moisture from gridMET on December 30, 2021 (the day of the Marshall Fire). Lower values indicate drier, more flammable conditions.
+
+```{julia}
+path = joinpath(output_dir, "fuel_moisture.png")
+if !isfile(path)
+    @info "Generating fuel_moisture.png"
+    MarshallWildfire.plot_fuel_moisture(; output_dir)
+else
+    @info "fuel_moisture.png already exists"
+end
+```
+
+![Fuel Moisture](images/fuel_moisture.png)
+
 ## HRRR Wind Animation
 
 ```{julia}

@@ -284,3 +284,62 @@ function get_hrrr_data()
 
     cat(rasters...; dims=Ti(times))
 end
+
+#-----------------------------------------------------------------------------# gridMET fuel moisture data
+const GRIDMET_BASE_URL = "http://www.northwestknowledge.net/metdata/data"
+
+"""
+    get_gridmet_fuel_moisture(; year=2021, variable=:fm100)
+
+Download gridMET dead fuel moisture data for the specified year and variable.
+Data is cropped to the Marshall Fire extent.
+
+# Arguments
+- `year`: Year to download (default: 2021 for Marshall Fire)
+- `variable`: Fuel moisture variable - `:fm100` (100-hour) or `:fm1000` (1000-hour)
+
+# Returns
+A Raster with daily fuel moisture values (%) cropped to the fire extent.
+
+# Data Source
+gridMET is a ~4km daily gridded dataset covering CONUS from 1979-present.
+See: https://www.climatologylab.org/gridmet.html
+"""
+function get_gridmet_fuel_moisture(; year::Int=2021, variable::Symbol=:fm100)
+    @assert variable in (:fm100, :fm1000) "Variable must be :fm100 or :fm1000"
+
+    filename = "$(variable)_$(year).nc"
+    path = joinpath(@__DIR__, "..", "data", "gridmet", filename)
+
+    if !isfile(path)
+        mkpath(dirname(path))
+        url = "$(GRIDMET_BASE_URL)/$(filename)"
+        @info "Downloading gridMET $variable data for $year..."
+        Downloads.download(url, path)
+    end
+
+    # Load and crop to fire extent (with buffer for context)
+    r = Raster(path)
+    r = crop(r; to=Extents.grow(extent, 0.5f0))
+
+    return r
+end
+
+"""
+    get_fuel_moisture_at_ignition()
+
+Get the 100-hour fuel moisture at the Marshall Fire ignition point on December 30, 2021.
+Returns fuel moisture as a percentage.
+"""
+function get_fuel_moisture_at_ignition()
+    fm = get_gridmet_fuel_moisture(; year=2021, variable=:fm100)
+
+    # December 30, 2021 is day 364 of the year
+    fire_date = Date(2021, 12, 30)
+
+    # Extract value at ignition point for fire date
+    fm_day = fm[Ti=At(fire_date)]
+    val = fm_day[X=Near(ignition_point.lon), Y=Near(ignition_point.lat)]
+
+    return val
+end

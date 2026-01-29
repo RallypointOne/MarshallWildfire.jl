@@ -337,3 +337,63 @@ function plot_hrrr_wind(; output_dir = joinpath(@__DIR__, "..", "output"))
 
     return output_path
 end
+
+#-----------------------------------------------------------------------------# plot_fuel_moisture
+"""
+    plot_fuel_moisture(; output_dir)
+
+Plot gridMET 100-hour dead fuel moisture on the day of the Marshall Fire (December 30, 2021).
+Shows how dry the fuels were when the fire ignited.
+"""
+function plot_fuel_moisture(; output_dir = joinpath(@__DIR__, "..", "output"))
+    mkpath(output_dir)
+
+    # Get fuel moisture data for 2021
+    fm = get_gridmet_fuel_moisture(; year=2021, variable=:fm100)
+
+    # Extract data for December 30, 2021 (fire day)
+    fire_date = Date(2021, 12, 30)
+    fm_day = fm[Ti=At(fire_date)]
+
+    # Get fire perimeter
+    perim = get_perimeter()
+
+    # Get value at ignition point
+    fm_at_ignition = fm_day[X=Near(ignition_point.lon), Y=Near(ignition_point.lat)]
+
+    @info "100-hour fuel moisture at ignition point on $(fire_date): $(round(fm_at_ignition, digits=1))%"
+
+    fig = Figure(size = (900, 800))
+    ax = GeoAxis(fig[1, 1]; dest = "+proj=webmerc",
+                 title = "100-Hour Dead Fuel Moisture - December 30, 2021")
+    hidedecorations!(ax, label=false, ticklabels=false, ticks=false, grid=true)
+
+    # Plot fuel moisture heatmap (lower = drier = more dangerous)
+    # Typical range is 5-30% for dead fuels
+    hm = heatmap!(ax, fm_day; colormap = Reverse(:RdYlBu), colorrange = (5, 25))
+
+    # Add fire perimeter overlay
+    poly!(ax, perim.geometry; color = :transparent, strokecolor = :black, strokewidth = 2)
+
+    # Plot the ignition point
+    p = scatter!(ax, [ignition_point.lon], [ignition_point.lat];
+                 marker = :star5, markersize = 20, color = :white, strokecolor = :black, strokewidth = 1)
+    translate!(p, 0, 0, 1)
+
+    # Add annotation for ignition point value
+    t = text!(ax, ignition_point.lon, ignition_point.lat;
+              text = "  $(round(fm_at_ignition, digits=1))%",
+              align = (:left, :center), fontsize = 14, color = :black)
+    translate!(t, 0, 0, 1)
+
+    # Colorbar
+    cb = Colorbar(fig[1, 2], hm;
+        label = "Fuel Moisture (%)",
+        ticks = ([5, 10, 15, 20, 25], ["5% (Very Dry)", "10%", "15%", "20%", "25% (Moist)"])
+    )
+
+    # Save the figure
+    output_path = joinpath(output_dir, "fuel_moisture.png")
+    save(output_path, fig)
+    return fig
+end
