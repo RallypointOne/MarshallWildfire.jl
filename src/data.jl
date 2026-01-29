@@ -205,6 +205,53 @@ function _osm_to_geojson_lines(osm_data)
     return features
 end
 
+#-----------------------------------------------------------------------------# Damage Assessment Data
+# From Boulder County's official damage assessment web app:
+# https://www.arcgis.com/apps/webappviewer/index.html?id=9f3314c39ad64fac925101aae0bdd62c
+
+const RDA_URL = "https://services3.arcgis.com/0jWpHMuhmHsukKE3/arcgis/rest/services/RDA_Public_View/FeatureServer/0/query?where=1%3D1&outFields=*&returnGeometry=true&outSR=4326&f=geojson"
+const CDA_URL = "https://services3.arcgis.com/0jWpHMuhmHsukKE3/arcgis/rest/services/CDA_Public_View/FeatureServer/0/query?where=1%3D1&outFields=*&returnGeometry=true&outSR=4326&f=geojson"
+
+"""
+    get_residential_damage_assessment()
+
+Download residential damage assessment points from Boulder County's official damage assessment.
+Returns a GeoJSON FeatureCollection with point geometries.
+
+# Attributes:
+- `addr`: Address
+- `damage`: Damage category ("Destroyed", "Major", "Minor", "Affected")
+- `jurisdiction`: City/jurisdiction
+"""
+function get_residential_damage_assessment()
+    path = joinpath(@__DIR__, "..", "data", "residential_damage_assessment.geojson")
+    if !isfile(path)
+        mkpath(dirname(path))
+        Downloads.download(RDA_URL, path)
+    end
+    GeoJSON.read(path)
+end
+
+"""
+    get_commercial_damage_assessment()
+
+Download commercial damage assessment points from Boulder County's official damage assessment.
+Returns a GeoJSON FeatureCollection with point geometries.
+
+# Attributes:
+- `addr`: Address
+- `damage`: Damage category ("Destroyed", "Major", "Minor", "Affected")
+- `jurisdiction`: City/jurisdiction
+"""
+function get_commercial_damage_assessment()
+    path = joinpath(@__DIR__, "..", "data", "commercial_damage_assessment.geojson")
+    if !isfile(path)
+        mkpath(dirname(path))
+        Downloads.download(CDA_URL, path)
+    end
+    GeoJSON.read(path)
+end
+
 #-----------------------------------------------------------------------------# HRRR wind data
 function get_hrrr_data()
     start_date = Date(start_time_utc)

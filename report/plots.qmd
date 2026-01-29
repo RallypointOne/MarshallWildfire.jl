@@ -48,6 +48,20 @@ end
 
 ![Marshall Fire with Buildings and Power Lines](images/marshall_fire_with_buildings.png)
 
+## Damage Assessment
+
+```{julia}
+path = joinpath(output_dir, "damage_assessment.png")
+if !isfile(path)
+    @info "Generating damage_assessment.png"
+    MarshallWildfire.plot_damage_assessment(; output_dir)
+else
+    @info "damage_assessment.png already exists"
+end
+```
+
+![Damage Assessment](images/damage_assessment.png)
+
 ## Landfire Layers
 
 ```{julia}

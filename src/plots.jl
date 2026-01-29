@@ -67,6 +67,113 @@ function plot_perimeter_with_buildings(; output_dir = joinpath(@__DIR__, "..", "
     return fig
 end
 
+#-----------------------------------------------------------------------------# plot_damage_assessment
+"""
+    plot_damage_assessment(; output_dir)
+
+Plot fire perimeter with damage assessment points from Boulder County's official data.
+- Destroyed: Red
+- Major damage: Orange
+- Minor damage: Yellow
+- Affected: Blue
+"""
+function plot_damage_assessment(; output_dir = joinpath(@__DIR__, "..", "output"))
+    mkpath(output_dir)
+
+    # Load data
+    perim = get_perimeter()
+    residential = get_residential_damage_assessment()
+    commercial = get_commercial_damage_assessment()
+
+    # Combine residential and commercial
+    all_points = vcat(collect(residential), collect(commercial))
+
+    # Group by damage category
+    destroyed = filter(f -> get(f.properties, :damage, "") == "Destroyed", all_points)
+    major = filter(f -> get(f.properties, :damage, "") == "Major", all_points)
+    minor = filter(f -> get(f.properties, :damage, "") == "Minor", all_points)
+    affected = filter(f -> get(f.properties, :damage, "") == "Affected", all_points)
+
+    @info "Loaded damage assessment: $(length(destroyed)) destroyed, $(length(major)) major, $(length(minor)) minor, $(length(affected)) affected"
+
+    fig = Figure(size = (900, 800))
+    ax = GeoAxis(fig[1, 1]; dest = "+proj=webmerc", title = "Marshall Fire Damage Assessment")
+    hidedecorations!(ax, label=false, ticklabels=false, ticks=false, grid=true)
+    m = Tyler.Map(extent2; figure = fig, axis = ax)
+    wait(m)
+
+    # Plot building footprints as background layer
+    buildings = get_building_footprints()
+    poly!(ax, buildings.geometry; color = (:gray, 0.5), strokecolor = (:gray, 0.7), strokewidth = 0.3)
+
+    # Helper to extract coordinates from point features
+    get_coords(features) = begin
+        xs = [GI.x(f.geometry) for f in features]
+        ys = [GI.y(f.geometry) for f in features]
+        (xs, ys)
+    end
+
+    # Plot points by damage category (least severe first so severe are on top)
+    # Use translate! to ensure points render above building footprints
+    if !isempty(affected)
+        xs, ys = get_coords(affected)
+        p = scatter!(ax, xs, ys; color = :dodgerblue, markersize = 5, strokewidth = 0.5, strokecolor = :black)
+        translate!(p, 0, 0, 1)
+    end
+
+    if !isempty(minor)
+        xs, ys = get_coords(minor)
+        p = scatter!(ax, xs, ys; color = :gold, markersize = 5, strokewidth = 0.5, strokecolor = :black)
+        translate!(p, 0, 0, 2)
+    end
+
+    if !isempty(major)
+        xs, ys = get_coords(major)
+        p = scatter!(ax, xs, ys; color = :darkorange, markersize = 6, strokewidth = 0.5, strokecolor = :black)
+        translate!(p, 0, 0, 3)
+    end
+
+    if !isempty(destroyed)
+        xs, ys = get_coords(destroyed)
+        p = scatter!(ax, xs, ys; color = :red, markersize = 6, strokewidth = 0.5, strokecolor = :black)
+        translate!(p, 0, 0, 4)
+    end
+
+    # Plot the fire perimeter outline
+    poly!(ax, perim.geometry; color = :transparent, strokecolor = :black, strokewidth = 2)
+
+    # Plot the ignition point as a star
+    p = scatter!(ax, [ignition_point.lon], [ignition_point.lat];
+                 marker = :star5, markersize = 20, color = :white, strokecolor = :black, strokewidth = 1)
+    translate!(p, 0, 0, 1)
+
+    # Add legend
+    legend_elements = [
+        MarkerElement(marker = :circle, color = :red, markersize = 10),
+        MarkerElement(marker = :circle, color = :darkorange, markersize = 10),
+        MarkerElement(marker = :circle, color = :gold, markersize = 10),
+        MarkerElement(marker = :circle, color = :dodgerblue, markersize = 10),
+        PolyElement(color = (:gray, 0.5), strokecolor = (:gray, 0.7), strokewidth = 0.3),
+        PolyElement(color = :transparent, strokecolor = :black, strokewidth = 2),
+        MarkerElement(marker = :star5, color = :white, strokecolor = :black, strokewidth = 1, markersize = 15)
+    ]
+    legend_labels = [
+        "Destroyed ($(length(destroyed)))",
+        "Major ($(length(major)))",
+        "Minor ($(length(minor)))",
+        "Affected ($(length(affected)))",
+        "Buildings",
+        "Fire Perimeter",
+        "Ignition Point"
+    ]
+    Legend(fig[1, 2], legend_elements, legend_labels; framevisible = true, padding = (10, 10, 10, 10))
+
+    # Save the figure
+    output_path = joinpath(output_dir, "damage_assessment.png")
+    save(output_path, fig)
+    return fig
+end
+
 #-----------------------------------------------------------------------------# plot_landfire_layers
 function plot_landfire_layers(; output_dir = joinpath(@__DIR__, "..", "output"))
     mkpath(output_dir)
