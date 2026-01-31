@@ -21,7 +21,7 @@ This project analyzes the Marshall Fire using:
 | Ignition Point | -105.231°, 39.955° |
 | Cause | Downed power lines (wind) |
 
-## Perimeter with Buildings and Power Lines
+## Fire Perimeter
 
 ```{julia}
 using Pkg
@@ -34,6 +34,20 @@ using GLMakie
 output_dir = joinpath(@__DIR__, "images")
 mkpath(output_dir)
 
+path = joinpath(output_dir, "marshall_fire_perimeter.png")
+if !isfile(path)
+    @info "Generating marshall_fire_perimeter.png"
+    MarshallWildfire.plot_marshall_perimeter(; output_dir)
+else
+    @info "marshall_fire_perimeter.png already exists"
+end
+```
+
+![Marshall Fire Perimeter](images/marshall_fire_perimeter.png)
+
+## Perimeter with Buildings and Power Lines
+
+```{julia}
 path = joinpath(output_dir, "marshall_fire_with_buildings.png")
 if !isfile(path)
     @info "Generating marshall_fire_with_buildings.png"

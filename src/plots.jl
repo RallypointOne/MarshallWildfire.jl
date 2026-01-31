@@ -233,10 +233,11 @@ function plot_fuel_flammability(; output_dir = joinpath(@__DIR__, "..", "report"
         # Non-burnable codes (91, 92, 93, 98, 99) -> 0
     )
 
-    # Convert fuel codes to flammability values
+    # Convert fuel codes to flammability values (NaN for unburnable)
     flammability = map(fuel.data) do code
         c = round(Int, code)
-        get(flammability_rank, c, 0)
+        val = get(flammability_rank, c, 0)
+        val == 0 ? NaN : Float64(val)
     end
     flammability_raster = Raster(flammability; dims=dims(fuel))
 
@@ -244,8 +245,8 @@ function plot_fuel_flammability(; output_dir = joinpath(@__DIR__, "..", "report"
     ax = GeoAxis(fig[1, 1]; dest = "+proj=webmerc", title = "Fuel Flammability")
     hidedecorations!(ax, label=false, ticklabels=false, ticks=false, grid=true)
 
-    # Use a fire-themed colormap (yellow -> orange -> red -> dark red)
-    hm = heatmap!(ax, flammability_raster; colormap = :YlOrRd, colorrange = (0, 14))
+    # Use a fire-themed colormap (yellow -> orange -> red -> dark red), gray for unburnable
+    hm = heatmap!(ax, flammability_raster; colormap = :YlOrRd, colorrange = (1, 14), nan_color = :gray)
 
     # Custom colorbar with fuel model labels
     cb = Colorbar(fig[1, 2], hm;
@@ -529,7 +530,7 @@ function plot_fuel_models(; output_dir = joinpath(@__DIR__, "..", "report", "ima
         :purple, :purple, :purple  # 11-13: Slash
     ]
 
-    fig = Figure(size = (1200, 900))
+    fig = Figure(size = (1200, 1800))
 
     # Title
     Label(fig[0, 1:2], "Anderson 13 Fuel Models", fontsize = 24, font = :bold)
@@ -638,8 +639,8 @@ Compute the maximum spread rate across all Anderson 13 fuel models
 for the standard wind speed (0-60 mph) and slope (0-45°) ranges.
 Returns a tuple (0.0, max_rate) suitable for use as colorrange.
 """
-function compute_fuel_model_colorrange(; Mf::Real=0.15)
-    wind_mph = range(0, 60, length=50)
+function compute_fuel_model_colorrange(; Mf::Real=0.10)
+    wind_mph = range(0, 30, length=50)
     wind_ms = wind_mph .* 0.44704
     slope_deg = range(0, 45, length=50)
     slope_rad = deg2rad.(slope_deg)
@@ -669,18 +670,18 @@ Create a contour plot of fire spread rate as a function of wind speed and slope.
 
 # Arguments
 - `fuel`: FuelModel to visualize
-- `Mf`: Fuel moisture content (default 10%)
+- `Mf`: Fuel moisture content (default 15%)
 - `colorrange`: Tuple of (min, max) for color scale (default: consistent across all models)
 
 # Returns
 A Makie Figure with:
-- X axis: Wind speed (0-60 mph)
+- X axis: Wind speed (0-30 mph)
 - Y axis: Slope (0-45 degrees)
 - Contours: Fire spread rate (m/min)
 """
-function plot(fuel::FuelModel; Mf::Real=0.15, colorrange::Tuple{Real,Real}=FUEL_MODEL_COLORRANGE)
-    # Wind speed range: 0-60 mph converted to m/s
-    wind_mph = range(0, 60, length=50)
+function plot(fuel::FuelModel; Mf::Real=0.10, colorrange::Tuple{Real,Real}=FUEL_MODEL_COLORRANGE)
+    # Wind speed range: 0-30 mph converted to m/s
+    wind_mph = range(0, 30, length=50)
     wind_ms = wind_mph .* 0.44704  # mph to m/s
 
     # Slope range: 0-45 degrees
@@ -699,21 +700,22 @@ function plot(fuel::FuelModel; Mf::Real=0.15, colorrange::Tuple{Real,Real}=FUEL_
         ylabel = "Slope (degrees)"
     )
 
-    # Use heatmap to fill entire area, with highclip for values above max
-    hm = heatmap!(ax, collect(wind_mph), collect(slope_deg), rates;
-                  colormap=:YlOrRd, colorrange=colorrange, highclip=:darkred)
+    # Use filled contour plot
+    levels = range(colorrange[1], colorrange[2], length=20)
+    cf = contourf!(ax, collect(wind_mph), collect(slope_deg), rates;
+                   colormap=:YlOrRd, levels=levels, extendlow=:auto, extendhigh=:darkred)
 
     # Add contour lines for readability
     contour!(ax, collect(wind_mph), collect(slope_deg), rates;
-             color=:black, linewidth=0.5, levels=10)
+             color=:black, linewidth=0.5, levels=levels)
 
-    Colorbar(fig[1, 2], hm; label="Spread Rate (m/min)")
+    Colorbar(fig[1, 2], cf; label="Spread Rate (m/min)")
 
     return fig
 end
 
 """
-    plot_all_fuel_models(; Mf=0.05, output_dir)
+    plot_all_fuel_models(; Mf=0.10, output_dir)
 
 Create spread rate contour plots for all Anderson 13 fuel models.
 """

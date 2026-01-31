@@ -8,6 +8,7 @@ project:
     - levelset.qmd
     - vulnerability.qmd
     - fuelmodels.qmd
+    - references.qmd
 
 website:
   title: "Marshall Fire Analysis"
@@ -34,6 +35,8 @@ website:
             text: Level Set Method
           - href: fuelmodels.qmd
             text: Fuel Models
+      - href: references.qmd
+        text: References
 
 format:
   html:

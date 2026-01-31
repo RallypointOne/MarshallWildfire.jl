@@ -20,20 +20,6 @@ output_dir = joinpath(@__DIR__, "images")
 mkpath(output_dir)
 ```
 
-## Fire Perimeter
-
-```{julia}
-path = joinpath(output_dir, "marshall_fire_perimeter.png")
-if !isfile(path)
-    @info "Generating marshall_fire_perimeter.png"
-    MarshallWildfire.plot_marshall_perimeter(; output_dir)
-else
-    @info "marshall_fire_perimeter.png already exists"
-end
-```
-
-![Marshall Fire Perimeter](images/marshall_fire_perimeter.png)
-
 ## Landfire Layers
 
 ```{julia}

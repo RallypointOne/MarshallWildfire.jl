@@ -1,0 +1,23 @@
+---
+title: "References"
+---
+
+## Fuel Models
+
+- Anderson, H. E. (1982). *Aids to Determining Fuel Models for Estimating Fire Behavior*. USDA Forest Service General Technical Report INT-122. [PDF](https://www.fs.usda.gov/rm/pubs_int/int_gtr122.pdf)
+- Scott, J. H., & Burgan, R. E. (2005). *Standard Fire Behavior Fuel Models: A Comprehensive Set for Use with Rothermel's Surface Fire Spread Model*. USDA Forest Service General Technical Report RMRS-GTR-153. [PDF](https://www.fs.usda.gov/rm/pubs/rmrs_gtr153.pdf)
+
+## Fire Spread Modeling
+
+- Rothermel, R. C. (1972). *A Mathematical Model for Predicting Fire Spread in Wildland Fuels*. USDA Forest Service Research Paper INT-115. [PDF](https://www.fs.usda.gov/rm/pubs_int/int_rp115.pdf)
+- Albini, F. A. (1976). *Estimating Wildfire Behavior and Effects*. USDA Forest Service General Technical Report INT-30.
+- Andrews, P. L. (2018). The Rothermel surface fire spread model and associated developments: A comprehensive explanation. USDA Forest Service General Technical Report RMRS-GTR-371. [PDF](https://www.fs.usda.gov/rm/pubs_series/rmrs/gtr/rmrs_gtr371.pdf)
+
+## Fuel Moisture
+
+- Abatzoglou, J. T. (2013). Development of gridded surface meteorological data for ecological applications and modelling. *International Journal of Climatology*, 33(1), 121-131. [DOI](https://doi.org/10.1002/joc.3413)
+- Nelson, R. M. (2000). Prediction of diurnal change in 10-h fuel stick moisture content. *Canadian Journal of Forest Research*, 30(7), 1071-1087.
+
+## LANDFIRE Data
+
+- LANDFIRE. (2022). LANDFIRE Program: Data Products. U.S. Department of the Interior, Geological Survey. [https://landfire.gov/](https://landfire.gov/)
