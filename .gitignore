@@ -4,3 +4,6 @@ data/
 *.png
 *.gif
 report/_freeze
+gmt.history
+*.html
+*.jl

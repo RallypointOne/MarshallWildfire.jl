@@ -6,6 +6,8 @@ project:
     - plots.qmd
     - datasets.qmd
     - levelset.qmd
+    - vulnerability.qmd
+    - fuelmodels.qmd
 
 website:
   title: "Marshall Fire Analysis"
@@ -24,10 +26,14 @@ website:
             text: Plots
           - href: datasets.qmd
             text: Datasets
+          - href: vulnerability.qmd
+            text: Vulnerability
       - section: "Methods"
         contents:
           - href: levelset.qmd
             text: Level Set Method
+          - href: fuelmodels.qmd
+            text: Fuel Models
 
 format:
   html:
@@ -38,5 +44,6 @@ format:
 
 execute:
   freeze: auto
+  warning: false
 
 jupyter: julia-1.12

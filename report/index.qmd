@@ -21,7 +21,40 @@ This project analyzes the Marshall Fire using:
 | Ignition Point | -105.231°, 39.955° |
 | Cause | Downed power lines (wind) |
 
-## Project Structure
+## Perimeter with Buildings and Power Lines
 
-- **Datasets**: Exploration of input data sources
-- **Model**: Rothermel-based fire spread simulation using level-set method
+```{julia}
+using Pkg
+Pkg.activate(joinpath(@__DIR__, ".."))
+Pkg.instantiate()
+
+using MarshallWildfire
+using GLMakie
+
+output_dir = joinpath(@__DIR__, "images")
+mkpath(output_dir)
+
+path = joinpath(output_dir, "marshall_fire_with_buildings.png")
+if !isfile(path)
+    @info "Generating marshall_fire_with_buildings.png"
+    MarshallWildfire.plot_perimeter_with_buildings(; output_dir)
+else
+    @info "marshall_fire_with_buildings.png already exists"
+end
+```
+
+![Marshall Fire with Buildings and Power Lines](images/marshall_fire_with_buildings.png)
+
+## Damage Assessment
+
+```{julia}
+path = joinpath(output_dir, "damage_assessment.png")
+if !isfile(path)
+    @info "Generating damage_assessment.png"
+    MarshallWildfire.plot_damage_assessment(; output_dir)
+else
+    @info "damage_assessment.png already exists"
+end
+```
+
+![Damage Assessment](images/damage_assessment.png)

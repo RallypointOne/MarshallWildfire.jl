@@ -218,6 +218,41 @@ The burned area is where $\psi < 0$:
 heatmap(xs, ys, ψ .< 0)
 ```
 
+### Example: Ellipse Initialization
+
+The level set can be initialized with various shapes. Here we demonstrate initialization with an ellipse, which can represent an elongated initial burn area (e.g., from wind-driven ignition):
+
+```{julia}
+using Pkg
+Pkg.activate(joinpath(@__DIR__, ".."))
+
+using MarshallWildfire
+using GLMakie
+
+# Create a level set on a simple grid
+ls = MarshallWildfire.LevelSet(
+    collect(range(-1.0, 1.0, length=100)),
+    collect(range(-1.0, 1.0, length=100))
+)
+
+# Initialize with a rotated ellipse
+MarshallWildfire.init_ellipse!(ls, 0.0, 0.0, 0.5, 0.25; θ=π/6)
+
+# Plot using the LevelSet recipe
+fig = Figure(size=(600, 500))
+ax = Axis(fig[1, 1]; title="Level Set with Ellipse Initialization",
+          xlabel="x", ylabel="y", aspect=DataAspect())
+levelsetplot!(ax, ls; colormap=:RdYlBu, frontcolor=:black, frontwidth=3)
+Colorbar(fig[1, 2]; colormap=:RdYlBu, limits=(-1, 1), label="ψ")
+fig
+```
+
+The heatmap shows the level set function $\psi$, with:
+
+- **Blue regions** ($\psi > 0$): Unburned area
+- **Red regions** ($\psi < 0$): Burned area
+- **Black contour** ($\psi = 0$): Fire front (the ellipse boundary)
+
 ## Advantages of the Level Set Method
 
 1. **Topological flexibility**: Handles merging and splitting fronts automatically

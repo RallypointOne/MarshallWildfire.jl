@@ -1,6 +1,9 @@
 module MarshallWildfire
 
-using ArchGDAL, Dates, Downloads, Extents, GeoJSON, GeoSurrogates, JSON3, Tyler, NCDatasets, GLMakie, GeoMakie, OSMGeocoder, URIs, RapidRefreshData, Rasters, TimeZones
+using ArchGDAL, Dates, Downloads, Extents, GeoJSON, GeoSurrogates, JSON3, Tyler, NCDatasets,
+    ModelingToolkit, GLMakie, GeoMakie, OSMGeocoder, ProgressMeter, URIs, RapidRefreshData, Rasters,
+    TimeZones, Tyler, TileProviders
+using ModelingToolkit: t_nounits as t, D_nounits as D
 using GeoJSON: GeoJSON
 
 import Landfire, WebAssets
@@ -16,7 +19,6 @@ const extent2 = Extents.grow(extent, 0.1f0)
 const ignition_point = (lon = -105.231f0, lat = 39.955f0)
 
 const unique_fire_id = "2021-COBLX-000995"
-
 const irwin_id = "C63FC371-BC70-4615-841B-B0838C21064F"
 
 const start_time = ZonedDateTime(DateTime(2021, 12, 30, 10), tz"America/Denver")
@@ -28,9 +30,11 @@ const stop_time_utc = DateTime(stop_time, UTC)
 #-----------------------------------------------------------------------------#
 include("data.jl")
 include("surrogates.jl")
+include("rothermel.jl")
 include("level_set.jl")
 include("model.jl")
 include("plots.jl")
+include("map_viewer.jl")
 
 #-----------------------------------------------------------------------------# stats
 function stats()

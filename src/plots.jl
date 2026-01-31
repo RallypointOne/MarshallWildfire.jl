@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------# plot_marshall_perimeter
-function plot_marshall_perimeter(; output_dir = joinpath(@__DIR__, "..", "output"))
+function plot_marshall_perimeter(; output_dir = joinpath(@__DIR__, "..", "report", "images"))
     mkpath(output_dir)
     perim = get_perimeter()
     fig = Figure(size = (800, 800))
@@ -26,7 +26,7 @@ function plot_marshall_perimeter(; output_dir = joinpath(@__DIR__, "..", "output
 end
 
 #-----------------------------------------------------------------------------# plot_perimeter_with_buildings
-function plot_perimeter_with_buildings(; output_dir = joinpath(@__DIR__, "..", "output"))
+function plot_perimeter_with_buildings(; output_dir = joinpath(@__DIR__, "..", "report", "images"))
     mkpath(output_dir)
     perim = get_perimeter()
     buildings = get_building_footprints()
@@ -77,7 +77,7 @@ Plot fire perimeter with damage assessment points from Boulder County's official
 - Minor damage: Yellow
 - Affected: Blue
 """
-function plot_damage_assessment(; output_dir = joinpath(@__DIR__, "..", "output"))
+function plot_damage_assessment(; output_dir = joinpath(@__DIR__, "..", "report", "images"))
     mkpath(output_dir)
 
     # Load data
@@ -175,7 +175,7 @@ function plot_damage_assessment(; output_dir = joinpath(@__DIR__, "..", "output"
 end
 
 #-----------------------------------------------------------------------------# plot_landfire_layers
-function plot_landfire_layers(; output_dir = joinpath(@__DIR__, "..", "output"))
+function plot_landfire_layers(; output_dir = joinpath(@__DIR__, "..", "report", "images"))
     mkpath(output_dir)
     nt = get_landfire_data()
 
@@ -202,7 +202,7 @@ Plot Landfire fuel model data colored by flammability.
 Anderson 13 fuel models ranked from most to least flammable based on
 typical fire behavior (spread rate and intensity).
 """
-function plot_fuel_flammability(; output_dir = joinpath(@__DIR__, "..", "output"))
+function plot_fuel_flammability(; output_dir = joinpath(@__DIR__, "..", "report", "images"))
     mkpath(output_dir)
     lf = get_landfire_data()
 
@@ -263,7 +263,7 @@ function plot_fuel_flammability(; output_dir = joinpath(@__DIR__, "..", "output"
 end
 
 #-----------------------------------------------------------------------------# plot_hrrr_wind
-function plot_hrrr_wind(; output_dir = joinpath(@__DIR__, "..", "output"))
+function plot_hrrr_wind(; output_dir = joinpath(@__DIR__, "..", "report", "images"))
     mkpath(output_dir)
     wind_data = get_hrrr_data()
 
@@ -338,6 +338,99 @@ function plot_hrrr_wind(; output_dir = joinpath(@__DIR__, "..", "output"))
     return output_path
 end
 
+#-----------------------------------------------------------------------------# plot_hrrr_wind_surrogate
+"""
+    plot_hrrr_wind_surrogate(; output_dir)
+
+Plot HRRR wind data using the WindField surrogate model, demonstrating
+interpolation capabilities in both space and time.
+"""
+function plot_hrrr_wind_surrogate(; output_dir = joinpath(@__DIR__, "..", "report", "images"))
+    mkpath(output_dir)
+    hrrr_data = get_hrrr_data()
+    wf = WindField(hrrr_data)
+
+    times = wf.times
+    xs = lookup(hrrr_data, X)
+    ys = lookup(hrrr_data, Y)
+
+    # Create a finer grid for interpolation demonstration
+    xs_fine = range(extrema(xs)..., length=50)
+    ys_fine = range(extrema(ys)..., length=50)
+
+    # Calculate wind magnitude for colorscale limits across all times
+    u_all = hrrr_data[Band=At(:u)]
+    v_all = hrrr_data[Band=At(:v)]
+    mag_all = sqrt.(u_all.^2 .+ v_all.^2)
+    clims = (0, maximum(mag_all))
+
+    ext = Extents.extent(hrrr_data)
+    dx = abs(step(xs) / 2)
+    dy = abs(step(ys) / 2)
+    xlims = (ext.X[1] + dx, ext.X[2] - 2dx)
+    ylims = (ext.Y[1] + dy, ext.Y[2] - 2dy)
+
+    title_text = Observable(Dates.format(times[1], "yyyy-mm-dd HH:MM") * " UTC (Surrogate)")
+    fig = Figure(size = (800, 850))
+
+    # Timeline progress bar
+    time_nums = datetime2unix.(times)
+    current_time = Observable(time_nums[1])
+    ax_timeline = Axis(fig[1, 1:2]; height = 30,
+                       limits = (extrema(time_nums), (-0.5, 0.5)),
+                       title = title_text)
+    hideydecorations!(ax_timeline)
+    hidexdecorations!(ax_timeline)
+    hidespines!(ax_timeline)
+    lines!(ax_timeline, time_nums, zeros(length(times)); color = :gray, linewidth = 3)
+    scatter!(ax_timeline, current_time, 0; color = :red, markersize = 15)
+
+    ax = GeoAxis(fig[2, 1]; dest = "+proj=webmerc", xlabel = "Longitude", ylabel = "Latitude",
+              limits = (xlims, ylims))
+
+    # Function to get interpolated wind field at a given time
+    function get_wind_field(dt)
+        u = [GeoSurrogates.predict(wf, (x, y, dt)).u for x in xs_fine, y in ys_fine]
+        v = [GeoSurrogates.predict(wf, (x, y, dt)).v for x in xs_fine, y in ys_fine]
+        mag = sqrt.(u.^2 .+ v.^2)
+        return u, v, mag
+    end
+
+    # Initial data
+    u, v, mag = get_wind_field(times[1])
+
+    hm = heatmap!(ax, collect(xs_fine), collect(ys_fine), mag'; colorrange = clims, colormap = :viridis)
+    arrows2d!(ax, collect(xs_fine)[1:3:end], collect(ys_fine)[1:3:end], u[1:3:end, 1:3:end]', v[1:3:end, 1:3:end]';
+            lengthscale = 0.003, color = :white)
+    cb = Colorbar(fig[2, 2], hm; label = "Wind Speed (m/s)")
+
+    rowsize!(fig.layout, 1, 50)
+    rowsize!(fig.layout, 2, Auto())
+
+    # Animate with interpolated times (2x temporal resolution)
+    interp_times = DateTime[]
+    for i in 1:length(times)-1
+        push!(interp_times, times[i])
+        push!(interp_times, times[i] + (times[i+1] - times[i]) ÷ 2)
+    end
+    push!(interp_times, times[end])
+
+    output_path = joinpath(output_dir, "hrrr_wind_surrogate.gif")
+    record(fig, output_path, interp_times; framerate = 8) do dt
+        u, v, mag = get_wind_field(dt)
+
+        empty!(ax)
+        heatmap!(ax, collect(xs_fine), collect(ys_fine), mag'; colorrange = clims, colormap = :viridis)
+        arrows2d!(ax, collect(xs_fine)[1:3:end], collect(ys_fine)[1:3:end], u[1:3:end, 1:3:end]', v[1:3:end, 1:3:end]';
+                lengthscale = 0.003, color = :white)
+
+        title_text[] = Dates.format(dt, "yyyy-mm-dd HH:MM") * " UTC (Surrogate)"
+        current_time[] = datetime2unix(dt)
+    end
+
+    return output_path
+end
+
 #-----------------------------------------------------------------------------# plot_fuel_moisture
 """
     plot_fuel_moisture(; output_dir)
@@ -345,7 +438,7 @@ end
 Plot gridMET 100-hour dead fuel moisture on the day of the Marshall Fire (December 30, 2021).
 Shows how dry the fuels were when the fire ignited.
 """
-function plot_fuel_moisture(; output_dir = joinpath(@__DIR__, "..", "output"))
+function plot_fuel_moisture(; output_dir = joinpath(@__DIR__, "..", "report", "images"))
     mkpath(output_dir)
 
     # Get fuel moisture data for 2021 - use larger extent to show multiple gridMET pixels (~4km resolution)
@@ -401,4 +494,237 @@ function plot_fuel_moisture(; output_dir = joinpath(@__DIR__, "..", "output"))
     output_path = joinpath(output_dir, "fuel_moisture.png")
     save(output_path, fig)
     return fig
+end
+
+#-----------------------------------------------------------------------------# plot_fuel_models
+"""
+    plot_fuel_models(; output_dir)
+
+Create an informative visualization of the Anderson 13 fuel models showing
+fuel properties and expected spread rates under standard conditions.
+"""
+function plot_fuel_models(; output_dir = joinpath(@__DIR__, "..", "report", "images"))
+    mkpath(output_dir)
+
+    # Get fuel models sorted by code
+    codes = sort(collect(keys(FUEL_MODELS)))
+    fuels = [FUEL_MODELS[c] for c in codes]
+
+    # Extract properties
+    names = [f.name for f in fuels]
+    w0 = [f.w0 for f in fuels]      # Fuel load (kg/m²)
+    σ = [f.σ for f in fuels]        # SAV ratio (1/m)
+    Mx = [f.Mx * 100 for f in fuels] # Moisture of extinction (%)
+    δ = [f.δ for f in fuels]        # Fuel depth (m)
+
+    # Calculate spread rates under standard conditions (5% moisture, 5 m/s wind, flat terrain)
+    spread_rates = [no_wind_no_slope_rate(f, 0.05) * 60 for f in fuels]  # m/min
+    spread_with_wind = [rothermel_spread_rate(f, 5.0, 0.0, 0.0, 0.0; Mf=0.05).rate * 60 for f in fuels]
+
+    # Group colors: Grass (green), Shrub (orange), Timber Litter (brown), Slash (purple)
+    group_colors = [
+        :forestgreen, :forestgreen, :forestgreen,  # 1-3: Grass
+        :darkorange, :darkorange, :darkorange, :darkorange,  # 4-7: Shrub
+        :saddlebrown, :saddlebrown, :saddlebrown,  # 8-10: Timber Litter
+        :purple, :purple, :purple  # 11-13: Slash
+    ]
+
+    fig = Figure(size = (1200, 900))
+
+    # Title
+    Label(fig[0, 1:2], "Anderson 13 Fuel Models", fontsize = 24, font = :bold)
+
+    # Panel 1: Fuel Load
+    ax1 = Axis(fig[1, 1];
+        title = "Fuel Load",
+        ylabel = "kg/m²",
+        xticks = (1:13, string.(codes)),
+        xticklabelrotation = 0
+    )
+    barplot!(ax1, 1:13, w0; color = group_colors)
+
+    # Panel 2: Fuel Depth
+    ax2 = Axis(fig[1, 2];
+        title = "Fuel Bed Depth",
+        ylabel = "meters",
+        xticks = (1:13, string.(codes)),
+        xticklabelrotation = 0
+    )
+    barplot!(ax2, 1:13, δ; color = group_colors)
+
+    # Panel 3: SAV Ratio
+    ax3 = Axis(fig[2, 1];
+        title = "Surface-Area-to-Volume Ratio",
+        ylabel = "1/m",
+        xticks = (1:13, string.(codes)),
+        xticklabelrotation = 0
+    )
+    barplot!(ax3, 1:13, σ; color = group_colors)
+
+    # Panel 4: Moisture of Extinction
+    ax4 = Axis(fig[2, 2];
+        title = "Moisture of Extinction",
+        ylabel = "%",
+        xticks = (1:13, string.(codes)),
+        xticklabelrotation = 0
+    )
+    barplot!(ax4, 1:13, Mx; color = group_colors)
+
+    # Panel 5: Spread Rate Comparison (full width)
+    ax5 = Axis(fig[3, 1:2];
+        title = "Fire Spread Rate (5% fuel moisture)",
+        ylabel = "m/min",
+        xticks = (1:13, string.(codes)),
+        xlabel = "Fuel Model"
+    )
+
+    # Grouped bars: no-wind vs with-wind
+    barplot!(ax5, (1:13) .- 0.2, spread_rates; width = 0.35, color = (:gray, 0.7), label = "No wind")
+    barplot!(ax5, (1:13) .+ 0.2, spread_with_wind; width = 0.35, color = group_colors, label = "5 m/s wind")
+
+    # Legend for spread rates
+    Legend(fig[3, 1:2],
+        [PolyElement(color = (:gray, 0.7)), PolyElement(color = :steelblue)],
+        ["No wind, no slope", "5 m/s wind (11 mph)"],
+        orientation = :horizontal,
+        tellwidth = false,
+        tellheight = false,
+        halign = :right,
+        valign = :top,
+        margin = (10, 10, 10, 10)
+    )
+
+    # Panel 6: Fuel model names and groups (full width)
+    ax6 = Axis(fig[4, 1:2];
+        title = "Fuel Model Descriptions",
+        yticks = (1:13, names),
+        xticks = ([1, 2, 3, 4], ["Grass\n(1-3)", "Shrub\n(4-7)", "Timber Litter\n(8-10)", "Slash\n(11-13)"]),
+        yreversed = true
+    )
+    hideydecorations!(ax6, ticklabels = false)
+
+    # Color bars by group
+    for (i, c) in enumerate(codes)
+        group_x = c <= 3 ? 1 : (c <= 7 ? 2 : (c <= 10 ? 3 : 4))
+        barplot!(ax6, [group_x], [1]; direction = :x, offset = i - 0.5, width = 0.8,
+                 color = group_colors[i], gap = 0)
+    end
+
+    # Scatter points for each fuel model
+    for (i, c) in enumerate(codes)
+        group_x = c <= 3 ? 1 : (c <= 7 ? 2 : (c <= 10 ? 3 : 4))
+        scatter!(ax6, [group_x], [i]; color = :white, markersize = 15, strokewidth = 2, strokecolor = :black)
+        text!(ax6, group_x, i; text = string(c), align = (:center, :center), fontsize = 10)
+    end
+
+    xlims!(ax6, 0.5, 4.5)
+
+    # Adjust layout
+    rowsize!(fig.layout, 0, Auto())
+    rowgap!(fig.layout, 10)
+
+    # Save the figure
+    output_path = joinpath(output_dir, "fuel_models.png")
+    save(output_path, fig)
+    return fig
+end
+
+#-----------------------------------------------------------------------------# plot(::FuelModel)
+
+"""
+    compute_fuel_model_colorrange(; Mf=0.10)
+
+Compute the maximum spread rate across all Anderson 13 fuel models
+for the standard wind speed (0-60 mph) and slope (0-45°) ranges.
+Returns a tuple (0.0, max_rate) suitable for use as colorrange.
+"""
+function compute_fuel_model_colorrange(; Mf::Real=0.15)
+    wind_mph = range(0, 60, length=50)
+    wind_ms = wind_mph .* 0.44704
+    slope_deg = range(0, 45, length=50)
+    slope_rad = deg2rad.(slope_deg)
+
+    max_rate = 0.0
+    for fuel in values(FUEL_MODELS)
+        rates = [rothermel_spread_rate(fuel, w, 0.0, s, 0.0; Mf).rate * 60.0
+                 for w in wind_ms, s in slope_rad]
+        # Filter out NaN/Inf values before taking maximum
+        finite_rates = filter(isfinite, rates)
+        if !isempty(finite_rates)
+            max_rate = max(max_rate, maximum(finite_rates))
+        end
+    end
+
+    return (0.0, 1000.0)  # Fixed range with highclip for values above 1000
+end
+
+# Standard color range for fuel model plots (m/min)
+# Computed to encompass max spread rates across all 13 fuel models at 60 mph wind, 45° slope
+const FUEL_MODEL_COLORRANGE = compute_fuel_model_colorrange()
+
+"""
+    plot(fuel::FuelModel; Mf=0.10, colorrange=FUEL_MODEL_COLORRANGE)
+
+Create a contour plot of fire spread rate as a function of wind speed and slope.
+
+# Arguments
+- `fuel`: FuelModel to visualize
+- `Mf`: Fuel moisture content (default 10%)
+- `colorrange`: Tuple of (min, max) for color scale (default: consistent across all models)
+
+# Returns
+A Makie Figure with:
+- X axis: Wind speed (0-60 mph)
+- Y axis: Slope (0-45 degrees)
+- Contours: Fire spread rate (m/min)
+"""
+function plot(fuel::FuelModel; Mf::Real=0.15, colorrange::Tuple{Real,Real}=FUEL_MODEL_COLORRANGE)
+    # Wind speed range: 0-60 mph converted to m/s
+    wind_mph = range(0, 60, length=50)
+    wind_ms = wind_mph .* 0.44704  # mph to m/s
+
+    # Slope range: 0-45 degrees
+    slope_deg = range(0, 45, length=50)
+    slope_rad = deg2rad.(slope_deg)
+
+    # Calculate spread rates (m/min) for each combination
+    # Using wind_dir=0, aspect=0 for simplicity (head fire conditions)
+    rates = [rothermel_spread_rate(fuel, w, 0.0, s, 0.0; Mf).rate * 60.0
+             for w in wind_ms, s in slope_rad]
+
+    fig = Figure(size=(600, 450))
+    ax = Axis(fig[1, 1];
+        title = "$(fuel.name)",
+        xlabel = "Wind Speed (mph)",
+        ylabel = "Slope (degrees)"
+    )
+
+    # Use heatmap to fill entire area, with highclip for values above max
+    hm = heatmap!(ax, collect(wind_mph), collect(slope_deg), rates;
+                  colormap=:YlOrRd, colorrange=colorrange, highclip=:darkred)
+
+    # Add contour lines for readability
+    contour!(ax, collect(wind_mph), collect(slope_deg), rates;
+             color=:black, linewidth=0.5, levels=10)
+
+    Colorbar(fig[1, 2], hm; label="Spread Rate (m/min)")
+
+    return fig
+end
+
+"""
+    plot_all_fuel_models(; Mf=0.05, output_dir)
+
+Create spread rate contour plots for all Anderson 13 fuel models.
+"""
+function plot_all_fuel_models(; Mf::Real=0.10, output_dir = joinpath(@__DIR__, "..", "report", "images"))
+    mkpath(output_dir)
+
+    for code in sort(collect(keys(FUEL_MODELS)))
+        fuel = FUEL_MODELS[code]
+        fig = plot(fuel; Mf)
+        output_path = joinpath(output_dir, "fuel_model_$(code).png")
+        save(output_path, fig)
+        @info "Saved fuel model $code plot to $output_path"
+    end
 end

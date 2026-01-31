@@ -1,0 +1,290 @@
+---
+title: "Fuel Models"
+execute:
+  echo: true
+  output: true
+---
+
+This page visualizes fire spread rates for each of the Anderson 13 fuel models. Each contour plot shows how spread rate varies with wind speed (0-60 mph) and terrain slope (0-45 degrees) under head fire conditions with 10% fuel moisture.
+
+```{julia}
+using Pkg
+Pkg.activate(joinpath(@__DIR__, ".."))
+
+using MarshallWildfire
+using GLMakie
+
+output_dir = joinpath(@__DIR__, "images")
+mkpath(output_dir)
+```
+
+## Grass Group (Models 1-3)
+
+Fast-spreading fuels dominated by grasses. These fuels typically have the highest spread rates due to their fine structure and low moisture content.
+
+::: {.panel-tabset}
+
+### Model 1: Short Grass
+
+```{julia}
+path = joinpath(output_dir, "fuel_model_1.png")
+if !isfile(path)
+    fuel = MarshallWildfire.FUEL_MODELS[1]
+    fig = MarshallWildfire.plot(fuel)
+    save(path, fig)
+end
+```
+
+![Model 1: Short Grass](images/fuel_model_1.png)
+
+### Model 2: Timber Grass
+
+```{julia}
+path = joinpath(output_dir, "fuel_model_2.png")
+if !isfile(path)
+    fuel = MarshallWildfire.FUEL_MODELS[2]
+    fig = MarshallWildfire.plot(fuel)
+    save(path, fig)
+end
+```
+
+![Model 2: Timber Grass/Understory](images/fuel_model_2.png)
+
+### Model 3: Tall Grass
+
+```{julia}
+path = joinpath(output_dir, "fuel_model_3.png")
+if !isfile(path)
+    fuel = MarshallWildfire.FUEL_MODELS[3]
+    fig = MarshallWildfire.plot(fuel)
+    save(path, fig)
+end
+```
+
+![Model 3: Tall Grass](images/fuel_model_3.png)
+
+:::
+
+## Shrub Group (Models 4-7)
+
+Brush and chaparral fuels. Model 4 (chaparral) produces some of the most extreme fire behavior.
+
+::: {.panel-tabset}
+
+### Model 4: Chaparral
+
+```{julia}
+path = joinpath(output_dir, "fuel_model_4.png")
+if !isfile(path)
+    fuel = MarshallWildfire.FUEL_MODELS[4]
+    fig = MarshallWildfire.plot(fuel)
+    save(path, fig)
+end
+```
+
+![Model 4: Chaparral](images/fuel_model_4.png)
+
+### Model 5: Brush
+
+```{julia}
+path = joinpath(output_dir, "fuel_model_5.png")
+if !isfile(path)
+    fuel = MarshallWildfire.FUEL_MODELS[5]
+    fig = MarshallWildfire.plot(fuel)
+    save(path, fig)
+end
+```
+
+![Model 5: Brush](images/fuel_model_5.png)
+
+### Model 6: Dormant Brush
+
+```{julia}
+path = joinpath(output_dir, "fuel_model_6.png")
+if !isfile(path)
+    fuel = MarshallWildfire.FUEL_MODELS[6]
+    fig = MarshallWildfire.plot(fuel)
+    save(path, fig)
+end
+```
+
+![Model 6: Dormant Brush](images/fuel_model_6.png)
+
+### Model 7: Southern Rough
+
+```{julia}
+path = joinpath(output_dir, "fuel_model_7.png")
+if !isfile(path)
+    fuel = MarshallWildfire.FUEL_MODELS[7]
+    fig = MarshallWildfire.plot(fuel)
+    save(path, fig)
+end
+```
+
+![Model 7: Southern Rough](images/fuel_model_7.png)
+
+:::
+
+## Timber Litter Group (Models 8-10)
+
+Compact forest floor fuels. Generally slower spreading due to compact fuel beds.
+
+::: {.panel-tabset}
+
+### Model 8: Closed Timber Litter
+
+```{julia}
+path = joinpath(output_dir, "fuel_model_8.png")
+if !isfile(path)
+    fuel = MarshallWildfire.FUEL_MODELS[8]
+    fig = MarshallWildfire.plot(fuel)
+    save(path, fig)
+end
+```
+
+![Model 8: Closed Timber Litter](images/fuel_model_8.png)
+
+### Model 9: Hardwood Litter
+
+```{julia}
+path = joinpath(output_dir, "fuel_model_9.png")
+if !isfile(path)
+    fuel = MarshallWildfire.FUEL_MODELS[9]
+    fig = MarshallWildfire.plot(fuel)
+    save(path, fig)
+end
+```
+
+![Model 9: Hardwood Litter](images/fuel_model_9.png)
+
+### Model 10: Timber with Understory
+
+```{julia}
+path = joinpath(output_dir, "fuel_model_10.png")
+if !isfile(path)
+    fuel = MarshallWildfire.FUEL_MODELS[10]
+    fig = MarshallWildfire.plot(fuel)
+    save(path, fig)
+end
+```
+
+![Model 10: Timber with Understory](images/fuel_model_10.png)
+
+:::
+
+## Slash Group (Models 11-13)
+
+Logging debris and slash fuels. Can produce intense fires with high fuel loads.
+
+::: {.panel-tabset}
+
+### Model 11: Light Slash
+
+```{julia}
+path = joinpath(output_dir, "fuel_model_11.png")
+if !isfile(path)
+    fuel = MarshallWildfire.FUEL_MODELS[11]
+    fig = MarshallWildfire.plot(fuel)
+    save(path, fig)
+end
+```
+
+![Model 11: Light Logging Slash](images/fuel_model_11.png)
+
+### Model 12: Medium Slash
+
+```{julia}
+path = joinpath(output_dir, "fuel_model_12.png")
+if !isfile(path)
+    fuel = MarshallWildfire.FUEL_MODELS[12]
+    fig = MarshallWildfire.plot(fuel)
+    save(path, fig)
+end
+```
+
+![Model 12: Medium Logging Slash](images/fuel_model_12.png)
+
+### Model 13: Heavy Slash
+
+```{julia}
+path = joinpath(output_dir, "fuel_model_13.png")
+if !isfile(path)
+    fuel = MarshallWildfire.FUEL_MODELS[13]
+    fig = MarshallWildfire.plot(fuel)
+    save(path, fig)
+end
+```
+
+![Model 13: Heavy Logging Slash](images/fuel_model_13.png)
+
+:::
+
+## Fuel Model Properties
+
+The following table summarizes the key properties of each Anderson 13 fuel model:
+
+| Model | Name | Fuel Load (kg/m²) | SAV Ratio (1/m) | Mx (%) | Depth (m) |
+|-------|------|-------------------|-----------------|--------|-----------|
+| 1 | Short grass | 0.166 | 11,483 | 12 | 0.305 |
+| 2 | Timber grass/understory | 0.896 | 9,843 | 15 | 0.305 |
+| 3 | Tall grass | 1.345 | 4,921 | 25 | 0.762 |
+| 4 | Chaparral | 2.242 | 6,562 | 20 | 1.829 |
+| 5 | Brush | 0.448 | 6,562 | 20 | 0.610 |
+| 6 | Dormant brush | 0.673 | 5,741 | 25 | 0.762 |
+| 7 | Southern rough | 0.507 | 5,741 | 40 | 0.762 |
+| 8 | Closed timber litter | 0.673 | 6,562 | 30 | 0.061 |
+| 9 | Hardwood litter | 1.307 | 8,203 | 25 | 0.061 |
+| 10 | Timber w/ understory | 1.345 | 6,562 | 25 | 0.305 |
+| 11 | Light logging slash | 0.673 | 4,921 | 15 | 0.305 |
+| 12 | Medium logging slash | 1.794 | 4,921 | 20 | 0.701 |
+| 13 | Heavy logging slash | 3.140 | 4,921 | 25 | 0.914 |
+
+**Key:**
+- **Fuel Load (w₀)**: Total dry weight of fuel per unit area
+- **SAV Ratio (σ)**: Surface-area-to-volume ratio - higher values indicate finer fuels that ignite more easily
+- **Mx**: Dead fuel moisture of extinction - fires won't spread if fuel moisture exceeds this value
+- **Depth (δ)**: Fuel bed depth
+
+## Fuel Moisture
+
+Fuel moisture content is critical for fire behavior. The **moisture of extinction (Mx)** defines the threshold above which fire will not spread. The plots above assume 10% fuel moisture, representing dry conditions.
+
+### Marshall Fire Fuel Moisture
+
+100-hour dead fuel moisture from gridMET on December 30, 2021 (the day of the Marshall Fire). Lower values indicate drier, more flammable conditions.
+
+```{julia}
+path = joinpath(output_dir, "fuel_moisture.png")
+if !isfile(path)
+    @info "Generating fuel_moisture.png"
+    MarshallWildfire.plot_fuel_moisture(; output_dir)
+else
+    @info "fuel_moisture.png already exists"
+end;
+```
+
+![Fuel Moisture on Fire Day](images/fuel_moisture.png)
+
+The exceptionally low fuel moisture values on December 30, 2021 contributed to the rapid spread of the Marshall Fire.
+
+## References
+
+### Fuel Models
+
+- Anderson, H. E. (1982). *Aids to Determining Fuel Models for Estimating Fire Behavior*. USDA Forest Service General Technical Report INT-122. [PDF](https://www.fs.usda.gov/rm/pubs_int/int_gtr122.pdf)
+- Scott, J. H., & Burgan, R. E. (2005). *Standard Fire Behavior Fuel Models: A Comprehensive Set for Use with Rothermel's Surface Fire Spread Model*. USDA Forest Service General Technical Report RMRS-GTR-153. [PDF](https://www.fs.usda.gov/rm/pubs/rmrs_gtr153.pdf)
+
+### Fire Spread Modeling
+
+- Rothermel, R. C. (1972). *A Mathematical Model for Predicting Fire Spread in Wildland Fuels*. USDA Forest Service Research Paper INT-115. [PDF](https://www.fs.usda.gov/rm/pubs_int/int_rp115.pdf)
+- Albini, F. A. (1976). *Estimating Wildfire Behavior and Effects*. USDA Forest Service General Technical Report INT-30.
+- Andrews, P. L. (2018). The Rothermel surface fire spread model and associated developments: A comprehensive explanation. USDA Forest Service General Technical Report RMRS-GTR-371. [PDF](https://www.fs.usda.gov/rm/pubs_series/rmrs/gtr/rmrs_gtr371.pdf)
+
+### Fuel Moisture
+
+- Abatzoglou, J. T. (2013). Development of gridded surface meteorological data for ecological applications and modelling. *International Journal of Climatology*, 33(1), 121-131. [DOI](https://doi.org/10.1002/joc.3413)
+- Nelson, R. M. (2000). Prediction of diurnal change in 10-h fuel stick moisture content. *Canadian Journal of Forest Research*, 30(7), 1071-1087.
+
+### LANDFIRE Data
+
+- LANDFIRE. (2022). LANDFIRE Program: Data Products. U.S. Department of the Interior, Geological Survey. [https://landfire.gov/](https://landfire.gov/)

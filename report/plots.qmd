@@ -34,34 +34,6 @@ end
 
 ![Marshall Fire Perimeter](images/marshall_fire_perimeter.png)
 
-## Perimeter with Buildings and Power Lines
-
-```{julia}
-path = joinpath(output_dir, "marshall_fire_with_buildings.png")
-if !isfile(path)
-    @info "Generating marshall_fire_with_buildings.png"
-    MarshallWildfire.plot_perimeter_with_buildings(; output_dir)
-else
-    @info "marshall_fire_with_buildings.png already exists"
-end
-```
-
-![Marshall Fire with Buildings and Power Lines](images/marshall_fire_with_buildings.png)
-
-## Damage Assessment
-
-```{julia}
-path = joinpath(output_dir, "damage_assessment.png")
-if !isfile(path)
-    @info "Generating damage_assessment.png"
-    MarshallWildfire.plot_damage_assessment(; output_dir)
-else
-    @info "damage_assessment.png already exists"
-end
-```
-
-![Damage Assessment](images/damage_assessment.png)
-
 ## Landfire Layers
 
 ```{julia}
@@ -104,21 +76,21 @@ end
 
 ![Fuel Flammability](images/fuel_flammability.png)
 
-## Fuel Moisture
+## Anderson 13 Fuel Models
 
-100-hour dead fuel moisture from gridMET on December 30, 2021 (the day of the Marshall Fire). Lower values indicate drier, more flammable conditions.
+The Anderson 13 fuel models are standard classifications used in fire behavior prediction. Each model has properties that determine how fire spreads: fuel load, depth, surface-area-to-volume ratio, and moisture of extinction.
 
 ```{julia}
-path = joinpath(output_dir, "fuel_moisture.png")
+path = joinpath(output_dir, "fuel_models.png")
 if !isfile(path)
-    @info "Generating fuel_moisture.png"
-    MarshallWildfire.plot_fuel_moisture(; output_dir)
+    @info "Generating fuel_models.png"
+    MarshallWildfire.plot_fuel_models(; output_dir)
 else
-    @info "fuel_moisture.png already exists"
+    @info "fuel_models.png already exists"
 end
 ```
 
-![Fuel Moisture](images/fuel_moisture.png)
+![Anderson 13 Fuel Models](images/fuel_models.png)
 
 ## HRRR Wind Animation
 
@@ -133,3 +105,19 @@ end
 ```
 
 ![HRRR Wind Animation](images/hrrr_wind.gif)
+
+## HRRR Wind Surrogate
+
+Wind field visualization using the `WindField` surrogate model, which provides interpolation in both space and time. The surrogate uses a finer spatial grid and interpolated time steps to demonstrate smooth transitions.
+
+```{julia}
+path = joinpath(output_dir, "hrrr_wind_surrogate.gif")
+if !isfile(path)
+    @info "Generating hrrr_wind_surrogate.gif"
+    MarshallWildfire.plot_hrrr_wind_surrogate(; output_dir)
+else
+    @info "hrrr_wind_surrogate.gif already exists"
+end
+```
+
+![HRRR Wind Surrogate](images/hrrr_wind_surrogate.gif)

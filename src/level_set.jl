@@ -1,3 +1,131 @@
+# Level set model based on
+# [1] J. Mandel, J. D. Beezley, and A. K. Kochanski, “Coupled atmosphere-wildland fire modeling with WRF 3.3 and SFIRE 2011,” Geosci. Model Dev., vol. 4, no. 3, pp. 591–610, Jul. 2011, doi: 10.5194/gmd-4-591-2011.
+# [2] R. C. Rothermel, Ogden, UT: Intermountain Forest and Range Experiment Station, Forest Service, United States Department of Agriculture, 1972.
+
+function fire_spread_rate(x, y, Ψ_grad_x, Ψ_grad_y, t, wind_fn, terrain_slope_fn, fuel_properties_fn)
+    # Unpack fuel properties from named tuple
+    fuel = fuel_properties_fn(x, y)
+    a = fuel.a
+    w = fuel.w
+    w_l = fuel.w_l
+    δ_m = fuel.δ_m
+    σ = fuel.σ
+    M_x = fuel.M_x
+    ρ_P = fuel.ρ_P
+    S_T = fuel.S_T
+    S_E = fuel.S_E
+    h = fuel.h
+    M_f = fuel.M_f
+
+    # Get terrain slope at this location
+    terrain_grad_x, terrain_grad_y = terrain_slope_fn(x, y)  # Returns (∂z/∂x, ∂z/∂y)
+
+    # Get wind at this location and time
+    wind_x, wind_y = wind_fn(x, y, t)
+
+    # Compute normal vector to fire front
+    gn = sqrt(Ψ_grad_x^2 + Ψ_grad_y^2)
+    n_x = Ψ_grad_x / gn
+    n_y = Ψ_grad_y / gn
+
+    # Wind-normal interaction (wind correction factor)
+    wind_dot_normal = wind_x * n_x + wind_y * n_y
+    U = abs(wind_dot_normal)
+
+    # Slope in direction of fire spread
+    tanϕ = terrain_grad_x * n_x + terrain_grad_y * n_y
+
+    ## ROTHERMEL FIRE SPREAD RATE EQUATIONS
+
+    βop = 3.348 * σ^(-0.8189)        # from Rothermel, eq (37)
+    w0 = w_l / (1 + M_f)
+    ρb = w0 / δ_m                    # bulk density
+    β = ρb / ρ_P                     # packing ratio
+    ξ = exp((0.792 + 0.618 * σ^0.5) * (β + 0.1)) / (192 + 0.25965 * σ)
+    ηs = 0.174 * S_E^(-0.19)         # mineral damping coefficient
+    ηM = 1 - 2.59 * M_f / M_x + 5.11 * (M_f / M_x)^2 - 3.52 * (M_f / M_x)^3  # moisture damping
+    wn = w0 / (1 + S_T)
+    Γmax = σ^1.5 / (495 + 0.594 * σ^1.5)
+    A = 1 / (4.77 * σ^0.1 - 7.27)
+    Γ = Γmax * (β / βop)^A * exp(A * (1 - β / βop))  # optimum reaction velocity
+    ϵ = exp(-138 / σ)                # effective heating number
+    Qig = 250 * β + 1116 * M_f       # heat of preignition
+    C = 7.47 * exp(-0.133 * σ^0.55)  # eq (48)
+    B = 0.02526 * σ^0.54              # eq (49) - wind exponent
+    Ua = a * U                        # adjusted wind speed
+    E = 0.715 * exp(-0.000359 * σ)   # eq (50)
+    IR = Γ * wn * h * ηM * ηs        # reaction intensity
+    R0 = IR * ξ / (ρb * ϵ * Qig)     # spread rate without wind/slope
+    ϕw = C * (Ua)^B * (β / βop)^(-E)  # eq (47) - wind factor
+    ϕS = 5.275 * β^(-0.3) * tanϕ^2              # slope factor
+
+    fuel_scale = 1.0  # scaling factor (reduced from 10000 to prevent gradient explosion)
+    S = fuel_scale * R0 * (1 + ϕw + ϕS)  # final fire spread rate
+
+    return S
+end
+
+# Register fire_spread_rate at module level
+@register_symbolic fire_spread_rate(x, y, Ψ_grad_x, Ψ_grad_y, t, wind_fn, terrain_slope_fn, fuel_properties_fn)
+
+"""
+    level_set_equation(wind_fn, terrain_slope_fn, fuel_properties_fn)
+
+Creates the Rothermel level set PDE equation: ∂Ψ/∂t + S * |∇Ψ| = 0
+
+# Arguments
+- `wind_fn`: Function with signature (x, y, t) -> (wind_x, wind_y)
+- `terrain_slope_fn`: Function with signature (x, y) -> (slope_x, slope_y)
+- `fuel_properties_fn`: Function with signature (x, y) -> NamedTuple
+
+# Returns
+A named tuple with:
+- `equation`: The PDE equation
+- `x`, `y`: Spatial parameters
+- `Ψ`: The level set function variable
+- `Dt`, `Dx`, `Dy`: Differential operators
+
+# Example
+```julia
+# Define custom functions
+my_wind(x, y, t) = (50.0, 50.0)
+my_slope(x, y) = (0.0, 0.0)
+my_fuel(x, y) = get_fuel_properties(x, y)
+
+# Create the PDE equation
+pde = level_set_equation(my_wind, my_slope, my_fuel)
+```
+"""
+function level_set_equation(wind_fn, terrain_slope_fn, fuel_properties_fn)
+    # Declare symbolic variables
+    @parameters x y
+    @variables Ψ(..)
+    Dt = Differential(t)
+    Dx = Differential(x)
+    Dy = Differential(y)
+
+    # Fire spread rate at each point - pass the functions directly
+    S = fire_spread_rate(x, y, Dx(Ψ(t, x, y)), Dy(Ψ(t, x, y)), t, wind_fn, terrain_slope_fn, fuel_properties_fn)
+
+    # Gradient magnitude
+    gn = sqrt(Dx(Ψ(t, x, y))^2 + Dy(Ψ(t, x, y))^2)
+
+    # Level set equation: ∂Ψ/∂t + S * |∇Ψ| = 0
+    equation = Dt(Ψ(t, x, y)) + S * gn ~ 0
+
+    return (
+        equation = equation,
+        t = t,
+        x = x,
+        y = y,
+        Ψ = Ψ,
+        Dt = Dt,
+        Dx = Dx,
+        Dy = Dy
+    )
+end
+
+
 #-----------------------------------------------------------------------------# LevelSet
 # Level set method for tracking propagating fronts
 # Reference: Osher & Sethian (1988), Sethian (1999)
@@ -96,6 +224,33 @@ function init_signed_distance!(ls::LevelSet{T}, x0::Real, y0::Real) where T
     return ls
 end
 
+"""
+    init_ellipse!(ls::LevelSet, x0, y0, a, b; θ=0.0)
+
+Initialize the level set as a signed distance function from an ellipse.
+Points inside the ellipse have ψ < 0.
+
+# Arguments
+- `x0`, `y0`: Center of the ellipse
+- `a`: Semi-major axis length
+- `b`: Semi-minor axis length
+- `θ`: Rotation angle in radians (default: 0.0)
+"""
+function init_ellipse!(ls::LevelSet{T}, x0::Real, y0::Real, a::Real, b::Real; θ::Real=0.0) where T
+    cosθ, sinθ = cos(θ), sin(θ)
+    for (i, x) in enumerate(ls.xs), (j, y) in enumerate(ls.ys)
+        # Translate to ellipse center
+        dx = x - x0
+        dy = y - y0
+        # Rotate to ellipse coordinates
+        xr = cosθ * dx + sinθ * dy
+        yr = -sinθ * dx + cosθ * dy
+        # Approximate signed distance (exact on boundary, approximate elsewhere)
+        ls.ψ[i, j] = sqrt((xr/a)^2 + (yr/b)^2) - 1.0
+    end
+    return ls
+end
+
 #-----------------------------------------------------------------------------# Gradient Computation
 
 """
@@ -109,6 +264,12 @@ function gradient_upwind(ψ::Matrix, i::Int, j::Int, dx::Real, dy::Real)
 
     # Boundary check - use one-sided differences at boundaries
     if i == 1 || i == nx || j == 1 || j == ny
+        return zero(eltype(ψ))
+    end
+
+    # Check for NaN in neighboring cells
+    if !isfinite(ψ[i-1, j]) || !isfinite(ψ[i+1, j]) ||
+       !isfinite(ψ[i, j-1]) || !isfinite(ψ[i, j+1])
         return zero(eltype(ψ))
     end
 
@@ -173,13 +334,23 @@ function step!(ls::LevelSet{T}, speed::Function, t::Real, dt::Real) where T
         # Get local speed
         S = speed(x, y, t)
 
-        # Skip if speed is zero or negative (no spread)
-        if S <= 0
+        # Skip if speed is zero, negative, NaN, or Inf (no spread or invalid)
+        if !(S > 0) || !isfinite(S)
+            continue
+        end
+
+        # Skip if current ψ value is already NaN (prevent propagation)
+        if !isfinite(ψ[i, j])
             continue
         end
 
         # Compute upwind gradient magnitude
         grad_mag = gradient_upwind(ψ, i, j, dx, dy)
+
+        # Skip if gradient is invalid
+        if !isfinite(grad_mag)
+            continue
+        end
 
         # Level set equation: ψ_t + S|∇ψ| = 0
         # Forward Euler: ψⁿ⁺¹ = ψⁿ - dt * S * |∇ψ|
@@ -207,11 +378,23 @@ function step!(ls::LevelSet{T}, speed::Matrix, dt::Real) where T
     for i in 2:nx-1, j in 2:ny-1
         S = speed[i, j]
 
-        if S <= 0
+        # Skip if speed is zero, negative, NaN, or Inf
+        if !(S > 0) || !isfinite(S)
+            continue
+        end
+
+        # Skip if current ψ value is already NaN
+        if !isfinite(ψ[i, j])
             continue
         end
 
         grad_mag = gradient_upwind(ψ, i, j, dx, dy)
+
+        # Skip if gradient is invalid
+        if !isfinite(grad_mag)
+            continue
+        end
+
         ψ_new[i, j] = ψ[i, j] - dt * S * grad_mag
     end
 
@@ -387,7 +570,8 @@ function simulate(ls::LevelSet, speed::Function, duration::Real;
                   dt::Union{Nothing,Real}=nothing,
                   save_interval::Union{Nothing,Real}=nothing,
                   reinit_interval::Union{Nothing,Real}=nothing,
-                  max_speed::Real=1.0)
+                  max_speed::Real=1.0,
+                  show_progress::Bool=true)
 
     # Defaults
     if isnothing(dt)
@@ -401,6 +585,9 @@ function simulate(ls::LevelSet, speed::Function, duration::Real;
     t = 0.0
     last_save = 0.0
     last_reinit = 0.0
+
+    n_steps = ceil(Int, duration / dt)
+    prog = Progress(n_steps; desc="Simulating fire spread: ", enabled=show_progress)
 
     while t < duration
         # Take a step
@@ -418,7 +605,11 @@ function simulate(ls::LevelSet, speed::Function, duration::Real;
             push!(snapshots, (t, deepcopy(ls)))
             last_save = t
         end
+
+        next!(prog)
     end
+
+    finish!(prog)
 
     # Always save final state
     if last_save < t
@@ -426,4 +617,35 @@ function simulate(ls::LevelSet, speed::Function, duration::Real;
     end
 
     return snapshots
+end
+
+#-----------------------------------------------------------------------------# Makie Recipe
+
+@recipe(LevelSetPlot, levelset) do scene
+    Attributes(
+        colormap = :RdYlBu,
+        frontcolor = :black,
+        frontwidth = 2.0,
+        showfield = true,
+        colorrange = automatic,
+    )
+end
+
+function Makie.plot!(p::LevelSetPlot)
+    ls = p[:levelset][]
+
+    # Plot the level set field as a heatmap
+    if p[:showfield][]
+        crange = p[:colorrange][]
+        if crange === automatic
+            maxabs = maximum(abs, ls.ψ)
+            crange = (-maxabs, maxabs)
+        end
+        heatmap!(p, ls.xs, ls.ys, ls.ψ'; colormap=p[:colormap], colorrange=crange)
+    end
+
+    # Plot the zero contour (fire front)
+    contour!(p, ls.xs, ls.ys, ls.ψ'; levels=[0.0], color=p[:frontcolor], linewidth=p[:frontwidth])
+
+    return p
 end

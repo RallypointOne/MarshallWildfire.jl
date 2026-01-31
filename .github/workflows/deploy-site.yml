@@ -85,6 +85,7 @@ jobs:
             generate_if_missing("marshall_fire_with_buildings.png", MarshallWildfire.plot_perimeter_with_buildings)
             generate_if_missing("damage_assessment.png", MarshallWildfire.plot_damage_assessment)
             generate_if_missing("fuel_flammability.png", MarshallWildfire.plot_fuel_flammability)
+            generate_if_missing("fuel_models.png", MarshallWildfire.plot_fuel_models)
             generate_if_missing("fuel_moisture.png", MarshallWildfire.plot_fuel_moisture)
             generate_if_missing("hrrr_wind.gif", MarshallWildfire.plot_hrrr_wind)
 
