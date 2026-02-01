@@ -6,4 +6,3 @@ data/
 report/_freeze
 gmt.history
 *.html
-*.jl
