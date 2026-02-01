@@ -230,7 +230,15 @@ function plot_fuel_flammability(; output_dir = joinpath(@__DIR__, "..", "report"
         11 => 11,  # Light logging slash - high
         12 => 12,  # Medium logging slash - very high
         13 => 14,  # Heavy logging slash - extreme
-        # Non-burnable codes (91, 92, 93, 98, 99) -> 0
+    )
+
+    # Non-burnable codes with their colors
+    nonburnable_codes = Dict(
+        91 => (:gray60, "Urban/Developed"),
+        92 => (:lightblue, "Snow/Ice"),
+        93 => (:wheat, "Agriculture"),
+        98 => (:steelblue, "Water"),
+        99 => (:tan, "Barren"),
     )
 
     # Convert fuel codes to flammability values (NaN for unburnable)
@@ -245,14 +253,26 @@ function plot_fuel_flammability(; output_dir = joinpath(@__DIR__, "..", "report"
     ax = GeoAxis(fig[1, 1]; dest = "+proj=webmerc", title = "Fuel Flammability")
     hidedecorations!(ax, label=false, ticklabels=false, ticks=false, grid=true)
 
-    # Use a fire-themed colormap (yellow -> orange -> red -> dark red), gray for unburnable
-    hm = heatmap!(ax, flammability_raster; colormap = :YlOrRd, colorrange = (1, 14), nan_color = :gray)
+    # Use a fire-themed colormap (yellow -> orange -> red -> dark red)
+    hm = heatmap!(ax, flammability_raster; colormap = :YlOrRd, colorrange = (1, 14), nan_color = :transparent)
+
+    # Plot each non-burnable category with its own color
+    for (code, (color, label)) in nonburnable_codes
+        mask = map(c -> round(Int, c) == code ? 1.0 : NaN, fuel.data)
+        mask_raster = Raster(mask; dims=dims(fuel))
+        heatmap!(ax, mask_raster; colormap = [color, color], colorrange = (0, 1), nan_color = :transparent)
+    end
 
     # Custom colorbar with fuel model labels
     cb = Colorbar(fig[1, 2], hm;
         label = "Flammability",
         ticks = ([1, 4, 7, 10, 13], ["Low", "Moderate", "High", "Very High", "Extreme"])
     )
+
+    # Add legend for non-burnable categories
+    legend_elements = [PolyElement(color = color) for (code, (color, label)) in sort(collect(nonburnable_codes), by=first)]
+    legend_labels = [label for (code, (color, label)) in sort(collect(nonburnable_codes), by=first)]
+    Legend(fig[2, 1:2], legend_elements, legend_labels, "Non-Burnable", orientation = :horizontal, tellwidth = false, tellheight = true)
 
     # Add fire perimeter overlay
     perim = get_perimeter()
@@ -408,16 +428,18 @@ function plot_hrrr_wind_surrogate(; output_dir = joinpath(@__DIR__, "..", "repor
     rowsize!(fig.layout, 1, 50)
     rowsize!(fig.layout, 2, Auto())
 
-    # Animate with interpolated times (2x temporal resolution)
+    # Animate with interpolated times (6x temporal resolution, 24fps to maintain same duration)
     interp_times = DateTime[]
     for i in 1:length(times)-1
-        push!(interp_times, times[i])
-        push!(interp_times, times[i] + (times[i+1] - times[i]) ÷ 2)
+        dt = times[i+1] - times[i]
+        for j in 0:5
+            push!(interp_times, times[i] + dt * j ÷ 6)
+        end
     end
     push!(interp_times, times[end])
 
     output_path = joinpath(output_dir, "hrrr_wind_surrogate.gif")
-    record(fig, output_path, interp_times; framerate = 8) do dt
+    record(fig, output_path, interp_times; framerate = 24) do dt
         u, v, mag = get_wind_field(dt)
 
         empty!(ax)

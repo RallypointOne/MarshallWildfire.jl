@@ -239,6 +239,8 @@ The following table summarizes the key properties of each Anderson 13 fuel model
 | 12 | Medium logging slash | 1.794 | 4,921 | 20 | 0.701 |
 | 13 | Heavy logging slash | 3.140 | 4,921 | 25 | 0.914 |
 
+*Source: Anderson, H. E. (1982). Aids to Determining Fuel Models for Estimating Fire Behavior. USDA Forest Service General Technical Report INT-122. Values converted to SI units.*
+
 **Key:**
 - **Fuel Load (w₀)**: Total dry weight of fuel per unit area
 - **SAV Ratio (σ)**: Surface-area-to-volume ratio - higher values indicate finer fuels that ignite more easily

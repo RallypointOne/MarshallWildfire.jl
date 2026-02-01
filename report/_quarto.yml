@@ -1,42 +1,22 @@
 project:
-  type: website
+  type: book
   output-dir: _site
-  render:
-    - index.qmd
-    - plots.qmd
-    - datasets.qmd
-    - levelset.qmd
-    - vulnerability.qmd
-    - fuelmodels.qmd
-    - references.qmd
 
-website:
+book:
   title: "Marshall Fire Analysis"
-  navbar:
-    right:
-      - icon: github
-        href: https://github.com/joshday/MarshallWildfire
-  sidebar:
-    style: docked
-    contents:
-      - href: index.qmd
-        text: Home
-      - section: "Analysis"
-        contents:
-          - href: plots.qmd
-            text: Plots
-          - href: datasets.qmd
-            text: Datasets
-          - href: vulnerability.qmd
-            text: Vulnerability
-      - section: "Methods"
-        contents:
-          - href: levelset.qmd
-            text: Level Set Method
-          - href: fuelmodels.qmd
-            text: Fuel Models
-      - href: references.qmd
-        text: References
+  repo-url: https://github.com/joshday/MarshallWildfire
+  repo-actions: [source]
+  chapters:
+    - index.qmd
+    - part: "Analysis"
+      chapters:
+        - plots.qmd
+        - datasets.qmd
+    - part: "Methods"
+      chapters:
+        - levelset.qmd
+        - fuelmodels.qmd
+    - references.qmd
 
 format:
   html:
@@ -44,6 +24,10 @@ format:
     toc: true
     code-fold: true
     code-tools: true
+  pdf:
+    toc: true
+    documentclass: report
+    colorlinks: true
 
 execute:
   freeze: auto
