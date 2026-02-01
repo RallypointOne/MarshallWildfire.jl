@@ -4,7 +4,7 @@ project:
 
 book:
   title: "Marshall Fire Analysis"
-  repo-url: https://github.com/joshday/MarshallWildfire
+  repo-url: https://github.com/RallypointOne/MarshallWildfire
   repo-actions: [source]
   chapters:
     - index.qmd
