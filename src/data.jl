@@ -1,3 +1,31 @@
+#-----------------------------------------------------------------------------# download helper with retry
+"""
+    download_with_retry(url, path; max_retries=3, base_delay=2.0)
+
+Download a URL with exponential backoff retry logic.
+Returns `true` on success, `false` on failure after all retries.
+"""
+function download_with_retry(url::String, path::String; max_retries::Int=3, base_delay::Float64=2.0)
+    for attempt in 1:max_retries
+        try
+            Downloads.download(url, path)
+            return true
+        catch e
+            if attempt < max_retries
+                delay = base_delay * (2 ^ (attempt - 1))
+                @warn "Download failed (attempt $attempt/$max_retries), retrying in $(delay)s..." exception=e
+                sleep(delay)
+            else
+                @warn "Download failed after $max_retries attempts" exception=e
+                return false
+            end
+        end
+    end
+    return false
+end
+
+const EMPTY_FEATURE_COLLECTION = """{"type":"FeatureCollection","features":[]}"""
+
 #-----------------------------------------------------------------------------# perimeter
 const PERIMETER_URL = "https://services3.arcgis.com/0jWpHMuhmHsukKE3/arcgis/rest/services/bcpos_Marshall_Fire_Perimeter/FeatureServer/0/query?where=1%3D1&outFields=*&returnGeometry=true&outSR=4326&f=geojson"
 
@@ -25,6 +53,7 @@ end
 
 Download building footprints from OpenStreetMap for the extent2 area.
 Uses the Overpass API to query building polygons.
+Returns an empty FeatureCollection if the download fails after retries.
 """
 function get_building_footprints()
     path = joinpath(@__DIR__, "..", "data", "buildings.geojson")
@@ -52,9 +81,13 @@ function get_building_footprints()
         encoded_query = URIs.escapeuri(query)
         url = "https://overpass-api.de/api/interpreter?data=$(encoded_query)"
 
-        # Download OSM JSON
+        # Download OSM JSON with retry logic
         osm_path = joinpath(@__DIR__, "..", "data", "buildings_osm.json")
-        Downloads.download(url, osm_path)
+        if !download_with_retry(url, osm_path; max_retries=3, base_delay=5.0)
+            @warn "Failed to download building footprints from Overpass API, using empty dataset"
+            write(path, EMPTY_FEATURE_COLLECTION)
+            return GeoJSON.read(path)
+        end
 
         # Convert to GeoJSON using osmtogeojson or manual parsing
         # For simplicity, use the raw Overpass JSON and parse it
@@ -121,6 +154,7 @@ end
 
 Download power line locations from OpenStreetMap for the extent2 area.
 Uses the Overpass API to query power lines and minor power lines.
+Returns an empty FeatureCollection if the download fails after retries.
 """
 function get_power_lines()
     path = joinpath(@__DIR__, "..", "data", "powerlines.geojson")
@@ -149,9 +183,13 @@ function get_power_lines()
         encoded_query = URIs.escapeuri(query)
         url = "https://overpass-api.de/api/interpreter?data=$(encoded_query)"
 
-        # Download OSM JSON
+        # Download OSM JSON with retry logic
         osm_path = joinpath(@__DIR__, "..", "data", "powerlines_osm.json")
-        Downloads.download(url, osm_path)
+        if !download_with_retry(url, osm_path; max_retries=3, base_delay=5.0)
+            @warn "Failed to download power lines from Overpass API, using empty dataset"
+            write(path, EMPTY_FEATURE_COLLECTION)
+            return GeoJSON.read(path)
+        end
 
         osm_data = JSON3.read(read(osm_path, String))
 
