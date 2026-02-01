@@ -1,0 +1,261 @@
+---
+title: "Physics-Informed Neural Networks"
+---
+
+## Introduction
+
+**Physics-Informed Neural Networks (PINNs)** are a class of neural networks that incorporate physical laws directly into their learning process. Rather than learning purely from data, PINNs embed governing equations (like the level set PDE) into the loss function, ensuring predictions respect known physics.
+
+For wildfire modeling, PINNs offer a promising approach to solving the level set equation while naturally handling the complex, spatially-varying fire spread rates from the Rothermel model.
+
+## The Core Idea
+
+Traditional neural networks learn mappings from inputs to outputs purely from labeled data:
+
+$$\text{Neural Network: } (t, x, y) \mapsto \hat{\psi}(t, x, y)$$
+
+PINNs extend this by adding a **physics constraint**: the network's output must satisfy the governing PDE. This is achieved by adding the PDE residual to the loss function.
+
+::: {.callout-note}
+## PINN Advantage
+PINNs can learn from sparse or noisy observational data while still respecting known physical laws, making them ideal for scenarios where complete ground truth is unavailable.
+:::
+
+## Mathematical Formulation
+
+### Network Architecture
+
+A PINN for the level set method takes spatiotemporal coordinates as input and outputs the level set function:
+
+$$\text{NN}_\theta: (t, x, y) \rightarrow \psi_\theta(t, x, y)$$
+
+where $\theta$ represents the network parameters (weights and biases).
+
+### Composite Loss Function
+
+The PINN minimizes a composite loss with three components:
+
+$$\mathcal{L}(\theta) = \mathcal{L}_{\text{PDE}} + \lambda_{\text{IC}} \mathcal{L}_{\text{IC}} + \lambda_{\text{BC}} \mathcal{L}_{\text{BC}}$$
+
+where:
+
+- $\mathcal{L}_{\text{PDE}}$ enforces the level set equation
+- $\mathcal{L}_{\text{IC}}$ enforces initial conditions
+- $\mathcal{L}_{\text{BC}}$ enforces boundary conditions
+- $\lambda$ terms are weighting hyperparameters
+
+### Physics Loss (PDE Residual)
+
+The level set equation states:
+
+$$\frac{\partial \psi}{\partial t} + S \cdot |\nabla \psi| = 0$$
+
+The physics loss penalizes violations of this equation at **collocation points** $(t_i, x_i, y_i)$ sampled throughout the domain:
+
+$$\mathcal{L}_{\text{PDE}} = \frac{1}{N_{\text{PDE}}} \sum_{i=1}^{N_{\text{PDE}}} \left| \frac{\partial \psi_\theta}{\partial t} + S_i \cdot |\nabla \psi_\theta| \right|^2$$
+
+The key insight is that **automatic differentiation** computes the required derivatives $\frac{\partial \psi_\theta}{\partial t}$, $\frac{\partial \psi_\theta}{\partial x}$, and $\frac{\partial \psi_\theta}{\partial y}$ exactly through the neural network.
+
+### Initial Condition Loss
+
+The initial fire perimeter must be encoded:
+
+$$\mathcal{L}_{\text{IC}} = \frac{1}{N_{\text{IC}}} \sum_{i=1}^{N_{\text{IC}}} \left| \psi_\theta(0, x_i, y_i) - \psi_0(x_i, y_i) \right|^2$$
+
+For a circular ignition at $(x_0, y_0)$ with radius $r$:
+
+$$\psi_0(x, y) = \sqrt{(x - x_0)^2 + (y - y_0)^2} - r$$
+
+### Boundary Condition Loss
+
+Neumann (zero-flux) boundary conditions ensure natural fire propagation at domain edges:
+
+$$\mathcal{L}_{\text{BC}} = \frac{1}{N_{\text{BC}}} \sum_{i=1}^{N_{\text{BC}}} \left| \frac{\partial \psi_\theta}{\partial n} \right|^2$$
+
+## Incorporating Rothermel Physics
+
+The fire spread rate $S(x, y, t)$ in the level set equation comes from the Rothermel model. In a PINN framework, this physics is embedded directly in the loss computation.
+
+### Differentiable Fire Spread
+
+The spread rate calculation must be **fully differentiable** for gradient-based optimization:
+
+```julia
+function fire_spread_rate(x, y, Ψ_grad_x, Ψ_grad_y, t,
+                         wind_fn, terrain_slope_fn, fuel_fn)
+    # Get spatially-varying inputs
+    fuel = fuel_fn(x, y)
+    wind_x, wind_y = wind_fn(x, y, t)
+    slope_x, slope_y = terrain_slope_fn(x, y)
+
+    # Compute fire front normal direction
+    gn = sqrt(Ψ_grad_x^2 + Ψ_grad_y^2)
+    n_x, n_y = Ψ_grad_x / gn, Ψ_grad_y / gn
+
+    # Rothermel base spread rate R₀
+    R0 = rothermel_base_rate(fuel)
+
+    # Wind factor (directional)
+    U = abs(wind_x * n_x + wind_y * n_y)
+    ϕw = wind_factor(U, fuel)
+
+    # Slope factor (directional)
+    tanϕ = slope_x * n_x + slope_y * n_y
+    ϕs = slope_factor(tanϕ, fuel)
+
+    return R0 * (1 + ϕw + ϕs)
+end
+```
+
+### Symbolic PDE Definition
+
+Using Julia's ModelingToolkit.jl, the level set equation can be defined symbolically:
+
+```julia
+using ModelingToolkit
+
+@parameters t x y
+@variables Ψ(..)
+
+Dt = Differential(t)
+Dx = Differential(x)
+Dy = Differential(y)
+
+# Gradient magnitude
+grad_mag = sqrt(Dx(Ψ(t,x,y))^2 + Dy(Ψ(t,x,y))^2)
+
+# Fire spread rate (registered as differentiable function)
+S = fire_spread_rate(x, y, Dx(Ψ(t,x,y)), Dy(Ψ(t,x,y)), t,
+                     wind_fn, slope_fn, fuel_fn)
+
+# Level set PDE
+equation = Dt(Ψ(t,x,y)) + S * grad_mag ~ 0
+```
+
+## Training Process
+
+### Collocation Point Sampling
+
+PINNs require sampling points throughout the domain:
+
+| Point Type | Location | Purpose |
+|------------|----------|---------|
+| Interior | Random $(t, x, y)$ in domain | Enforce PDE |
+| Initial | $t = 0$, random $(x, y)$ | Enforce IC |
+| Boundary | Domain edges | Enforce BC |
+
+### Optimization
+
+Training proceeds via gradient descent on the composite loss:
+
+1. **Forward pass**: Evaluate $\psi_\theta$ at collocation points
+2. **Compute derivatives**: Automatic differentiation for $\partial\psi/\partial t$, $\nabla\psi$
+3. **Evaluate losses**: PDE residual, IC error, BC error
+4. **Backward pass**: Compute gradients $\nabla_\theta \mathcal{L}$
+5. **Update**: Adjust network parameters
+
+### Training Dynamics
+
+PINN training typically shows distinct phases:
+
+- **Phase 1 (Early)**: Rapid loss decrease as network learns gross behavior
+- **Phase 2 (Middle)**: Oscillations as network balances competing loss terms
+- **Phase 3 (Late)**: Gradual convergence with fine-tuning of gradients
+
+## Advantages for Wildfire Modeling
+
+### 1. Mesh-Free Computation
+
+Unlike finite difference methods that require a fixed grid, PINNs can evaluate $\psi$ at **arbitrary points**. This enables:
+
+- Adaptive resolution near the fire front
+- Easy handling of irregular domains
+- No explicit grid storage
+
+### 2. Natural Handling of Spatiotemporal Variability
+
+Wind, fuel, and terrain vary across space and time. PINNs naturally incorporate these variations through the physics loss without special discretization schemes.
+
+### 3. Data Assimilation
+
+PINNs can incorporate observational data (e.g., satellite fire detections) alongside physics:
+
+$$\mathcal{L} = \mathcal{L}_{\text{PDE}} + \mathcal{L}_{\text{IC}} + \mathcal{L}_{\text{BC}} + \lambda_{\text{data}} \mathcal{L}_{\text{data}}$$
+
+where $\mathcal{L}_{\text{data}}$ penalizes deviation from observed fire perimeters.
+
+### 4. Uncertainty Quantification
+
+Bayesian extensions of PINNs can provide uncertainty estimates, crucial for operational fire prediction where input data (wind forecasts, fuel moisture) are uncertain.
+
+## Limitations and Challenges
+
+### Training Difficulty
+
+PINNs can be challenging to train due to:
+
+- **Competing loss terms**: PDE, IC, and BC losses may conflict
+- **Gradient imbalance**: Different loss components have different gradient magnitudes
+- **Hyperparameter sensitivity**: Loss weights $\lambda$ require careful tuning
+
+### Topological Changes
+
+The level set method handles merging fire fronts automatically, but PINNs may struggle with:
+
+- Sharp gradients near fronts
+- Discontinuities in the spread rate
+
+### Computational Cost
+
+While PINNs avoid grid storage, training requires many forward/backward passes. For simple domains, traditional methods (Method of Lines) may be faster.
+
+## Comparison with Traditional Methods
+
+| Aspect | Finite Difference | PINN |
+|--------|-------------------|------|
+| Grid | Required | Optional |
+| Stability | CFL condition | Learned |
+| Data integration | Difficult | Natural |
+| Uncertainty | Not built-in | Extensions exist |
+| Training | None | Required |
+| Evaluation | Grid points | Anywhere |
+
+## Julia Implementation
+
+The [WildfireModels.jl](https://github.com/joshday/WildfireModels) package provides infrastructure for PINN-based fire spread modeling using:
+
+- **ModelingToolkit.jl**: Symbolic PDE definition
+- **NeuralPDE.jl**: PINN solver framework
+- **Lux.jl**: Neural network architecture
+- **MethodOfLines.jl**: Traditional discretization (for comparison)
+
+### Example Setup
+
+```julia
+using WildfireModels, ModelingToolkit
+
+# Define physical inputs
+wind_fn(x, y, t) = (5.0, 5.0)  # Constant wind
+slope_fn(x, y) = (0.0, 0.0)    # Flat terrain
+fuel_fn = make_fuel_properties_fn(FUEL_MODELS[1]; Mf=0.05)
+
+# Initial condition: 50m radius fire at (500, 500)
+Ψ0(x, y) = sqrt((x - 500)^2 + (y - 500)^2) - 50
+
+# Create PDE system
+@named pdesys = LevelSetPDESystem(
+    wind_fn = wind_fn,
+    terrain_slope_fn = slope_fn,
+    fuel_properties_fn = fuel_fn,
+    x_domain = (0.0, 1000.0),
+    y_domain = (0.0, 1000.0),
+    t_domain = (0.0, 60.0),
+    Ψ0 = Ψ0
+)
+```
+
+## References
+
+- Raissi, M., Perdikaris, P., & Karniadakis, G. E. (2019). Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations. *Journal of Computational Physics*, 378, 686-707.
+- Karniadakis, G. E., et al. (2021). Physics-informed machine learning. *Nature Reviews Physics*, 3(6), 422-440.
+- Rothermel, R. C. (1972). A mathematical model for predicting fire spread in wildland fuels. *USDA Forest Service Research Paper INT-115*.
