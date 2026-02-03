@@ -402,6 +402,81 @@ function step!(ls::LevelSet{T}, speed::Matrix, dt::Real) where T
     return ls
 end
 
+"""
+    step_directional!(ls::LevelSet, speed::Function, t::Real, dt::Real)
+
+Advance the level set by one time step with direction-dependent speed.
+
+Solves: ∂ψ/∂t + S(x,y,t,nx,ny)|∇ψ| = 0
+
+# Arguments
+- `ls`: Level set to update (modified in place)
+- `speed`: Function `speed(x, y, t, nx, ny) -> Real` returning local front speed
+          where (nx, ny) is the outward normal direction (unit vector)
+- `t`: Current time
+- `dt`: Time step size
+
+This method allows the speed to vary based on the direction of propagation,
+which is essential for modeling wind-driven fire spread.
+"""
+function step_directional!(ls::LevelSet{T}, speed::Function, t::Real, dt::Real) where T
+    ψ = ls.ψ
+    nx_grid, ny_grid = size(ψ)
+    dx, dy = ls.dx, ls.dy
+
+    ψ_new = copy(ψ)
+
+    for i in 2:nx_grid-1, j in 2:ny_grid-1
+        x, y = ls.xs[i], ls.ys[j]
+
+        # Skip if current ψ value is already NaN (prevent propagation)
+        if !isfinite(ψ[i, j])
+            continue
+        end
+
+        # Compute gradient using central differences for normal direction
+        # Note: gradient_central returns (d/di, d/dj) where i is first matrix index
+        # In our LevelSet, ψ[i,j] is at (xs[i], ys[j]), so first index = x, second = y
+        # But for heatmap plotting with transpose, the visual x corresponds to j and y to i
+        # So we swap: dψ/dx uses j-differences, dψ/dy uses i-differences
+        grad_i, grad_j = gradient_central(ψ, i, j, dx, dy)
+        grad_mag_central = sqrt(grad_i^2 + grad_j^2)
+
+        # Skip if gradient is too small (can't determine direction)
+        if grad_mag_central < 1e-10
+            continue
+        end
+
+        # Outward normal direction (points from burned to unburned)
+        # Swap components to match visual coordinate system
+        nx = grad_j / grad_mag_central  # x-component from j-derivative
+        ny = grad_i / grad_mag_central  # y-component from i-derivative
+
+        # Get direction-dependent speed
+        S = speed(x, y, t, nx, ny)
+
+        # Skip if speed is zero, negative, NaN, or Inf (no spread or invalid)
+        if !(S > 0) || !isfinite(S)
+            continue
+        end
+
+        # Compute upwind gradient magnitude for stability
+        grad_mag = gradient_upwind(ψ, i, j, dx, dy)
+
+        # Skip if gradient is invalid
+        if !isfinite(grad_mag)
+            continue
+        end
+
+        # Level set equation: ψ_t + S|∇ψ| = 0
+        # Forward Euler: ψⁿ⁺¹ = ψⁿ - dt * S * |∇ψ|
+        ψ_new[i, j] = ψ[i, j] - dt * S * grad_mag
+    end
+
+    ls.ψ .= ψ_new
+    return ls
+end
+
 #-----------------------------------------------------------------------------# CFL Condition
 
 """
@@ -592,6 +667,95 @@ function simulate(ls::LevelSet, speed::Function, duration::Real;
     while t < duration
         # Take a step
         step!(ls, speed, t, dt)
+        t += dt
+
+        # Reinitialize if needed
+        if !isnothing(reinit_interval) && t - last_reinit >= reinit_interval
+            reinitialize!(ls)
+            last_reinit = t
+        end
+
+        # Save snapshot if needed
+        if t - last_save >= save_interval
+            push!(snapshots, (t, deepcopy(ls)))
+            last_save = t
+        end
+
+        next!(prog)
+    end
+
+    finish!(prog)
+
+    # Always save final state
+    if last_save < t
+        push!(snapshots, (t, deepcopy(ls)))
+    end
+
+    return snapshots
+end
+
+"""
+    simulate_directional(ls::LevelSet, speed::Function, duration::Real; kwargs...)
+
+Run a level set simulation with direction-dependent speed.
+
+# Arguments
+- `ls`: Initial level set (will be modified)
+- `speed`: Speed function `speed(x, y, t, nx, ny) -> Real` where (nx, ny) is the
+          outward normal direction (unit vector pointing from burned to unburned)
+- `duration`: Total simulation time
+
+# Keyword Arguments
+- `dt`: Time step (default: computed from CFL with estimated max speed)
+- `save_interval`: Time interval between saved snapshots (default: duration/10)
+- `reinit_interval`: Time interval for reinitialization (default: no reinitialization)
+- `max_speed`: Maximum expected speed for CFL calculation (default: 1.0)
+
+# Returns
+Vector of `(time, LevelSet)` tuples representing simulation snapshots.
+
+# Example
+```julia
+# Wind blowing east at 5 m/s
+wind_dir = 0.0  # radians
+R0 = 0.1  # base spread rate
+wind_factor = 2.0
+
+function directional_speed(x, y, t, nx, ny)
+    # Speed increases when spreading in wind direction
+    wind_component = cos(wind_dir) * nx + sin(wind_dir) * ny
+    return R0 * (1 + wind_factor * max(0, wind_component))
+end
+
+snapshots = simulate_directional(ls, directional_speed, 60.0; max_speed=R0*(1+wind_factor))
+```
+"""
+function simulate_directional(ls::LevelSet, speed::Function, duration::Real;
+                              dt::Union{Nothing,Real}=nothing,
+                              save_interval::Union{Nothing,Real}=nothing,
+                              reinit_interval::Union{Nothing,Real}=nothing,
+                              max_speed::Real=1.0,
+                              show_progress::Bool=true)
+
+    # Defaults
+    if isnothing(dt)
+        dt = cfl_dt(ls, max_speed)
+    end
+    if isnothing(save_interval)
+        save_interval = duration / 10
+    end
+
+    snapshots = [(0.0, deepcopy(ls))]
+    t = 0.0
+    last_save = 0.0
+    last_reinit = 0.0
+
+    n_steps = ceil(Int, duration / dt)
+    prog = Progress(n_steps; desc="Simulating fire spread: ", enabled=show_progress)
+
+    while t < duration
+        # Take a step using directional speed
+        step_directional!(ls, speed, t, dt)
         t += dt
 
         # Reinitialize if needed
