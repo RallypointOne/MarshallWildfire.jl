@@ -104,6 +104,15 @@ jobs:
       - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
+      - name: Install IJulia kernel
+        run: |
+          julia -e '
+            using Pkg
+            Pkg.add("IJulia")
+            using IJulia
+            installkernel("Julia", "--project=@.")
+          '
+
       - name: Render Quarto site
         run: quarto render report/
 
