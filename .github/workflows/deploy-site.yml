@@ -64,6 +64,8 @@ jobs:
           '
 
       - name: Generate plots
+        env:
+          LANDFIRE_EMAIL: ${{ secrets.LANDFIRE_EMAIL }}
         run: |
           xvfb-run -a julia --project=. -e '
             using MarshallWildfire
