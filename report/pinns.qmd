@@ -8,6 +8,92 @@ title: "Physics-Informed Neural Networks"
 
 For wildfire modeling, PINNs offer a promising approach to solving the level set equation while naturally handling the complex, spatially-varying fire spread rates from the Rothermel model.
 
+## Notation Guide
+
+Before diving into the mathematics, here's a guide to the notation used throughout this page:
+
+### Coordinates and Variables
+
+| Symbol | Meaning |
+|--------|---------|
+| $t$ | Time (seconds or minutes) |
+| $x, y$ | Spatial coordinates (meters or degrees) |
+| $(x, y)$ | A point in 2D space |
+| $(t, x, y)$ | A point in space-time |
+
+### Level Set Function
+
+| Symbol | Meaning |
+|--------|---------|
+| $\psi$ or $\Psi$ | The **level set function** — a scalar field whose zero contour ($\psi = 0$) represents the fire front |
+| $\psi(t, x, y)$ | Value of the level set at position $(x, y)$ and time $t$ |
+| $\psi < 0$ | Region that has burned (inside the fire) |
+| $\psi > 0$ | Region that has not burned (outside the fire) |
+| $\psi = 0$ | The fire front (perimeter) |
+| $\psi_0(x, y)$ | Initial condition — the level set function at $t = 0$ |
+| $\psi_\theta$ | Level set function approximated by a neural network with parameters $\theta$ |
+
+### Derivatives and Gradients
+
+| Symbol | Meaning |
+|--------|---------|
+| $\frac{\partial \psi}{\partial t}$ | Partial derivative of $\psi$ with respect to time — how fast $\psi$ changes at a fixed point |
+| $\frac{\partial \psi}{\partial x}$ | Partial derivative with respect to $x$ |
+| $\nabla \psi$ | **Gradient** of $\psi$: the vector $\left(\frac{\partial \psi}{\partial x}, \frac{\partial \psi}{\partial y}\right)$ pointing in the direction of steepest increase |
+| $\|\nabla \psi\|$ | **Gradient magnitude**: $\sqrt{\left(\frac{\partial \psi}{\partial x}\right)^2 + \left(\frac{\partial \psi}{\partial y}\right)^2}$ |
+| $\frac{\partial \psi}{\partial n}$ | **Normal derivative** — derivative in the direction perpendicular to a boundary |
+
+::: {.callout-tip}
+## Understanding the Gradient
+The gradient $\nabla \psi$ points perpendicular to the fire front (from burned toward unburned). Its magnitude $|\nabla \psi|$ indicates how sharply the level set function changes — ideally $|\nabla \psi| = 1$ for a signed distance function.
+:::
+
+### Fire Spread
+
+| Symbol | Meaning |
+|--------|---------|
+| $S$ | **Spread rate** — speed at which the fire front advances (m/s or m/min) |
+| $S(x, y, t)$ | Spread rate at position $(x, y)$ and time $t$ (varies with wind, terrain, fuel) |
+| $R_0$ | **Base spread rate** — fire spread with no wind or slope (from Rothermel model) |
+| $\phi_w$ | **Wind factor** — dimensionless multiplier for wind's effect on spread rate |
+| $\phi_s$ | **Slope factor** — dimensionless multiplier for terrain slope's effect |
+
+### Neural Network and Loss
+
+| Symbol | Meaning |
+|--------|---------|
+| $\theta$ | Neural network **parameters** (all weights and biases) |
+| $\text{NN}_\theta$ | Neural network function parameterized by $\theta$ |
+| $\mathcal{L}$ | **Loss function** — quantity minimized during training |
+| $\mathcal{L}_{\text{PDE}}$ | **Physics loss** — penalizes violation of the level set equation |
+| $\mathcal{L}_{\text{IC}}$ | **Initial condition loss** — penalizes deviation from initial fire shape |
+| $\mathcal{L}_{\text{BC}}$ | **Boundary condition loss** — penalizes violation at domain edges |
+| $\lambda$ | **Weighting hyperparameter** — controls relative importance of loss terms |
+| $N$ | Number of sample points (e.g., $N_{\text{PDE}}$ = number of collocation points) |
+
+### Summation Notation
+
+The expression:
+
+$$\frac{1}{N} \sum_{i=1}^{N} |f_i|^2$$
+
+means: "Take $N$ samples, compute $|f|^2$ for each, sum them up, and divide by $N$." This gives the **mean squared error** over the samples.
+
+### The Level Set Equation
+
+The governing PDE is:
+
+$$\frac{\partial \psi}{\partial t} + S \cdot |\nabla \psi| = 0$$
+
+Reading this term by term:
+
+- $\frac{\partial \psi}{\partial t}$: How fast the level set value changes at a fixed point
+- $S$: The fire spread rate (from Rothermel)
+- $|\nabla \psi|$: The gradient magnitude
+- $= 0$: The equation must balance (this is the constraint the PINN learns to satisfy)
+
+**Physical interpretation**: As the fire front advances with speed $S$, the level set function adjusts so that the zero contour moves accordingly.
+
 ## The Core Idea
 
 Traditional neural networks learn mappings from inputs to outputs purely from labeled data:
@@ -75,6 +161,28 @@ $$\mathcal{L}_{\text{BC}} = \frac{1}{N_{\text{BC}}} \sum_{i=1}^{N_{\text{BC}}} \
 ## Incorporating Rothermel Physics
 
 The fire spread rate $S(x, y, t)$ in the level set equation comes from the Rothermel model. In a PINN framework, this physics is embedded directly in the loss computation.
+
+### Rothermel Model Notation
+
+The Rothermel model uses several fuel and environmental parameters:
+
+| Symbol | Name | Meaning |
+|--------|------|---------|
+| $\sigma$ | Surface area-to-volume ratio | How finely divided the fuel is (1/ft) — higher means faster ignition |
+| $\delta$ | Fuel bed depth | Height of the fuel layer (ft) |
+| $w_0$ | Oven-dry fuel load | Mass of fuel per unit area (lb/ft²) |
+| $M_f$ | Fuel moisture content | Water content as fraction of dry weight (e.g., 0.05 = 5%) |
+| $M_x$ | Moisture of extinction | Moisture level above which fire won't spread |
+| $\rho_p$ | Particle density | Density of fuel particles (lb/ft³) |
+| $h$ | Heat content | Energy released per unit mass (BTU/lb) |
+| $\beta$ | Packing ratio | Fraction of fuel bed volume occupied by fuel |
+| $I_R$ | Reaction intensity | Heat release rate per unit area (BTU/ft²/min) |
+
+The final spread rate combines these into:
+
+$$S = R_0 \cdot (1 + \phi_w + \phi_s)$$
+
+where $R_0$ depends on fuel properties, $\phi_w$ accounts for wind pushing the fire, and $\phi_s$ accounts for fire spreading faster uphill.
 
 ### Differentiable Fire Spread
 
@@ -220,29 +328,88 @@ While PINNs avoid grid storage, training requires many forward/backward passes. 
 | Training | None | Required |
 | Evaluation | Grid points | Anywhere |
 
-## Julia Implementation
+## Julia Implementation: WildfireModels.jl
 
-The [WildfireModels.jl](https://github.com/joshday/WildfireModels) package provides infrastructure for PINN-based fire spread modeling using:
+The [WildfireModels.jl](https://github.com/jClugstor/WildfireModels) package by Jordan Clugston provides a complete PINN-based fire spread modeling framework. This package demonstrates how to combine the Rothermel fire behavior model with Physics-Informed Neural Networks to solve the level set equation for wildfire propagation.
 
-- **ModelingToolkit.jl**: Symbolic PDE definition
-- **NeuralPDE.jl**: PINN solver framework
-- **Lux.jl**: Neural network architecture
-- **MethodOfLines.jl**: Traditional discretization (for comparison)
+### Package Architecture
 
-### Example Setup
+WildfireModels.jl leverages the Julia scientific machine learning ecosystem:
+
+- **ModelingToolkit.jl**: Symbolic definition of the level set PDE
+- **NeuralPDE.jl**: PINN solver framework that embeds physics into neural network training
+- **Lux.jl**: Neural network architecture for the PINN
+- **MethodOfLines.jl**: Traditional finite difference discretization (for comparison/validation)
+
+### How the PINN Works in WildfireModels.jl
+
+#### 1. Level Set PDE Definition
+
+The core of the package is the `level_set_equation()` function, which constructs the governing PDE symbolically:
+
+$$\frac{\partial \Psi}{\partial t} + S(x, y, t) \cdot |\nabla \Psi| = 0$$
+
+This function returns the symbolic differential operators (`Dt`, `Dx`, `Dy`) and the equation itself, which NeuralPDE.jl uses to formulate the physics loss.
+
+#### 2. Fire Spread Rate from Rothermel
+
+The `fire_spread_rate()` function computes $S(x, y, t)$ using Rothermel's 1972 empirical model. The calculation proceeds as:
+
+1. **Extract fuel properties**: Surface area-to-volume ratio ($\sigma$), moisture content, fuel load
+2. **Compute intermediate quantities**: Packing ratio ($\beta$), reaction intensity ($I_R$), base spread rate ($R_0$)
+3. **Wind-normal interaction**: Project wind velocity onto the fire front normal direction
+4. **Apply environmental corrections**: Wind factor ($\phi_w$) and slope factor ($\phi_s$)
+5. **Final rate**: $S = R_0 \cdot (1 + \phi_w + \phi_s)$
+
+The key insight is that the spread rate depends on the *direction* of fire propagation (via $\nabla\Psi$), not just position—this creates a coupling between the neural network output and the physics.
+
+#### 3. User-Defined Environment Functions
+
+WildfireModels.jl allows users to define custom environmental inputs as functions:
 
 ```julia
-using WildfireModels, ModelingToolkit
+# Wind field: returns (u, v) velocity components
+wind(x, y, t) = (50.0, 50.0)  # Constant 50 m/min wind
 
-# Define physical inputs
+# Terrain slope: returns (∂z/∂x, ∂z/∂y)
+terrain_slope(x, y) = (0.0, 0.0)  # Flat terrain
+
+# Fuel properties: returns named tuple of fuel model parameters
+fuel_props(x, y) = get_fuel_properties(x, y)
+```
+
+These functions are called during both training and evaluation, enabling spatially and temporally varying inputs without redefining the PDE.
+
+#### 4. PINN Training with NeuralPDE.jl
+
+The package uses NeuralPDE.jl to train a neural network that satisfies:
+
+1. **Physics loss**: The level set equation residual at collocation points
+2. **Initial condition loss**: Match the initial fire perimeter ($\Psi_0$)
+3. **Boundary condition loss**: Zero-flux conditions at domain edges
+
+```julia
+# Construct the PDE system
+pde = level_set_equation(wind, terrain_slope, fuel_props)
+
+# NeuralPDE discretizes and trains the PINN
+# The neural network learns Ψ(t, x, y) that satisfies all constraints
+```
+
+### Example Workflow
+
+```julia
+using WildfireModels
+
+# 1. Define environmental inputs
 wind_fn(x, y, t) = (5.0, 5.0)  # Constant wind
 slope_fn(x, y) = (0.0, 0.0)    # Flat terrain
 fuel_fn = make_fuel_properties_fn(FUEL_MODELS[1]; Mf=0.05)
 
-# Initial condition: 50m radius fire at (500, 500)
+# 2. Define initial fire (50m radius circle)
 Ψ0(x, y) = sqrt((x - 500)^2 + (y - 500)^2) - 50
 
-# Create PDE system
+# 3. Create PDE system
 @named pdesys = LevelSetPDESystem(
     wind_fn = wind_fn,
     terrain_slope_fn = slope_fn,
@@ -252,7 +419,18 @@ fuel_fn = make_fuel_properties_fn(FUEL_MODELS[1]; Mf=0.05)
     t_domain = (0.0, 60.0),
     Ψ0 = Ψ0
 )
+
+# 4. Train the PINN (uses NeuralPDE.jl internally)
+# 5. Evaluate Ψ at any (t, x, y) to track fire front (Ψ = 0)
 ```
+
+### Key Advantages of the WildfireModels.jl Approach
+
+1. **Modular physics**: Rothermel model is cleanly separated from the PDE solver
+2. **Flexible inputs**: Wind, terrain, and fuel can be arbitrary functions
+3. **Mesh-free**: No grid storage required; evaluate $\Psi$ anywhere
+4. **Differentiable**: Entire pipeline supports automatic differentiation
+5. **Comparison ready**: MethodOfLines.jl support enables validation against traditional methods
 
 ## References
 
