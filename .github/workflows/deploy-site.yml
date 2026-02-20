@@ -118,7 +118,7 @@ jobs:
       - name: Render Quarto site
         env:
           LANDFIRE_EMAIL: ${{ secrets.LANDFIRE_EMAIL }}
-        run: xvfb-run -a quarto render report/
+        run: xvfb-run -a quarto render report/ --to html
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
