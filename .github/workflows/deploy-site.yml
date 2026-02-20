@@ -106,15 +106,19 @@ jobs:
 
       - name: Install IJulia kernel
         run: |
+          pip install jupyter
           julia -e '
             using Pkg
             Pkg.add("IJulia")
             using IJulia
-            installkernel("Julia", "--project=@.")
+            installkernel("Julia")
           '
+          jupyter kernelspec list
 
       - name: Render Quarto site
-        run: quarto render report/
+        env:
+          LANDFIRE_EMAIL: ${{ secrets.LANDFIRE_EMAIL }}
+        run: xvfb-run -a quarto render report/
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
