@@ -2,6 +2,30 @@
 title: "Marshall Fire Analysis"
 ---
 
+## Full Simulation (44 hours)
+
+```{julia}
+using Pkg
+Pkg.activate(joinpath(@__DIR__, ".."))
+Pkg.instantiate()
+
+using MarshallWildfire
+using GLMakie
+
+output_dir = joinpath(@__DIR__, "images")
+mkpath(output_dir)
+
+path = joinpath(output_dir, "wildfires_sim_full_growth.gif")
+if !isfile(path)
+    @info "Generating full simulation (this takes ~20 minutes)..."
+    MarshallWildfire.simulate_marshall_wf_full(; output_dir)
+else
+    @info "wildfires_sim_full_growth.gif already exists"
+end
+```
+
+![Marshall Fire — Full Simulation with Elliptical Spread Model](images/wildfires_sim_full_growth.gif)
+
 ## Overview
 
 The Marshall Fire was a devastating wildfire that occurred in Boulder County, Colorado on December 30, 2021. Driven by extreme winds, it became the most destructive wildfire in Colorado history, destroying over 1,000 structures.
@@ -24,16 +48,6 @@ This project analyzes the Marshall Fire using:
 ## Fire Perimeter
 
 ```{julia}
-using Pkg
-Pkg.activate(joinpath(@__DIR__, ".."))
-Pkg.instantiate()
-
-using MarshallWildfire
-using GLMakie
-
-output_dir = joinpath(@__DIR__, "images")
-mkpath(output_dir)
-
 path = joinpath(output_dir, "marshall_fire_perimeter.png")
 if !isfile(path)
     @info "Generating marshall_fire_perimeter.png"

@@ -1,12 +1,12 @@
 module MarshallWildfire
 
-using ArchGDAL, Dates, Downloads, Extents, GeoJSON, GeoSurrogates, JSON3, Tyler, NCDatasets,
-    ModelingToolkit, GLMakie, GeoMakie, OSMGeocoder, ProgressMeter, URIs, RapidRefreshData, Rasters,
-    TimeZones, Tyler, TileProviders
+using ArchGDAL, CSV, DataFrames, Dates, Downloads, Extents, GeoJSON, GeoSurrogates, JSON3, Tyler,
+    NCDatasets, ModelingToolkit, GLMakie, GeoMakie, OSMGeocoder, ProgressMeter, URIs,
+    RapidRefreshData, Rasters, Statistics, TimeZones, Tyler, TileProviders
 using ModelingToolkit: t_nounits as t, D_nounits as D
 using GeoJSON: GeoJSON
 
-import Landfire, WebAssets
+import Landfire, WebAssets, Wildfires
 
 import GeoInterface as GI
 import GeoFormatTypes as GFT
@@ -35,6 +35,7 @@ include("level_set.jl")
 include("model.jl")
 include("plots.jl")
 include("map_viewer.jl")
+include("wildfires_sim.jl")
 
 #-----------------------------------------------------------------------------# stats
 function stats()

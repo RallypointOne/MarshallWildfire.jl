@@ -290,6 +290,48 @@ function get_commercial_damage_assessment()
     GeoJSON.read(path)
 end
 
+#-----------------------------------------------------------------------------# NREL WTK-LED wind data
+"""
+    get_nrel_wind_data(; year=2020)
+
+Download 5-minute wind data from the NREL Wind Toolkit Long-term Ensemble Dataset (WTK-LED)
+for the Marshall Fire ignition point.
+
+Returns attributes: windspeed_10m, winddirection_10m, turbulent_kinetic_energy_20m.
+
+Requires `ENV["NREL_API_KEY"]` to be set. Get a free key at https://developer.nrel.gov/signup/
+
+The data is cached at `data/nrel/wtk_led_5min_{year}.csv`.
+"""
+function get_nrel_wind_data(; year::Int=2020)
+    path = joinpath(@__DIR__, "..", "data", "nrel", "wtk_led_5min_$(year).csv")
+
+    if !isfile(path)
+        mkpath(dirname(path))
+
+        api_key = get(ENV, "NREL_API_KEY", "")
+        isempty(api_key) && error("Set ENV[\"NREL_API_KEY\"] to download NREL data. Get a free key at https://developer.nrel.gov/signup/")
+
+        lon, lat = ignition_point.lon, ignition_point.lat
+        url = string(
+            "https://developer.nrel.gov/api/wind-toolkit/v2/wind/wtk-conus-5min-v1-0-0-download.csv",
+            "?api_key=", api_key,
+            "&wkt=POINT($(lon)%20$(lat))",
+            "&attributes=windspeed_10m,winddirection_10m,turbulent_kinetic_energy_20m",
+            "&names=", year,
+            "&interval=5",
+            "&utc=true",
+            "&email=emailjoshday@gmail.com",
+        )
+
+        @info "Downloading NREL WTK-LED 5-min wind data for $year..."
+        Downloads.download(url, path)
+        @info "Cached NREL data at $path"
+    end
+
+    return path
+end
+
 #-----------------------------------------------------------------------------# HRRR wind data
 function get_hrrr_data()
     start_date = Date(start_time_utc)
